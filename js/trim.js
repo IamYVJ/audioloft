@@ -44,7 +44,7 @@
         fadeOut: $('#fadeOut'),
         normalize: $('#normalize'),
         fileName: $('#fileName'),
-        bitDepth: $('#bitDepth'),
+        format: $('#format'),
         outLength: $('#outLength'),
         outSize: $('#outSize'),
         previewButton: $('#previewButton'),
@@ -162,10 +162,8 @@
     function refreshOutput() {
         if (!state.clip) return;
         const duration = outputDuration();
-        const depth = Number(els.bitDepth.value);
-        const samples = Math.round(duration * state.clip.sampleRate);
         els.outLength.textContent = AL.formatTime(duration);
-        els.outSize.textContent = AL.formatBytes(44 + samples * state.clip.numberOfChannels * depth / 8);
+        els.outSize.textContent = AL.formatBytes(AL.estimateBytes(els.format.value, duration, state.clip.numberOfChannels, state.clip.sampleRate));
         const nothing = duration < 0.001;
         els.exportButton.disabled = nothing;
         els.previewButton.disabled = nothing;
@@ -219,15 +217,15 @@
         preview.play(0, out.duration);
     }
 
-    async function exportWav() {
+    async function exportAudio() {
         if (!state.clip) return;
-        const depth = Number(els.bitDepth.value);
-        const name = AL.withExtension(els.fileName.value.trim() || `${state.base}-trimmed`, 'wav');
+        const format = els.format.value;
+        const name = AL.withExtension(els.fileName.value.trim() || `${state.base}-trimmed`, AL.extensionFor(format));
         try {
-            await ui.withBusy('Encoding WAV…', async () => {
+            await ui.withBusy('Preparing…', async (setLabel) => {
                 const out = buildOutput();
                 if (out.length === 0) throw new Error('The result would be empty. Adjust the selection first.');
-                AL.downloadBlob(AL.encodeWav(out, depth), name);
+                AL.downloadBlob(await AL.encodeWithLabel(out, format, setLabel), name);
             });
             ui.toast(`Saved ${name}`, 'success');
         } catch (error) {
@@ -287,10 +285,10 @@
     });
 
     document.querySelectorAll('input[name="mode"]').forEach((input) => input.addEventListener('change', refreshOutput));
-    els.bitDepth.addEventListener('change', refreshOutput);
+    AL.formatPicker(els.format, refreshOutput);
     [els.fadeIn, els.fadeOut, els.normalize].forEach((input) => input.addEventListener('change', stopPreview));
     els.previewButton.addEventListener('click', togglePreview);
-    els.exportButton.addEventListener('click', exportWav);
+    els.exportButton.addEventListener('click', exportAudio);
 
     ui.shortcuts({
         Space: togglePlay,

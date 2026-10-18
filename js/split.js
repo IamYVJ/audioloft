@@ -39,7 +39,7 @@
         summary: $('#listSummary'),
         partCount: $('#partCount'),
         outSize: $('#outSize'),
-        bitDepth: $('#bitDepth'),
+        format: $('#format'),
         trimSilence: $('#trimSilence'),
         fadeEdges: $('#fadeEdges'),
         exportZip: $('#exportZip')
@@ -153,7 +153,6 @@
 
     function renderList() {
         const segs = segments();
-        const depth = Number(els.bitDepth.value);
         const clip = state.clip;
         els.list.innerHTML = '';
 
@@ -212,7 +211,7 @@
             els.list.appendChild(row);
         });
 
-        const total = clip ? 44 * segs.length + clip.length * clip.numberOfChannels * depth / 8 : 0;
+        const total = clip ? segs.reduce((sum, seg) => sum + AL.estimateBytes(els.format.value, seg.end - seg.start, clip.numberOfChannels, clip.sampleRate), 0) : 0;
         els.partCount.textContent = String(segs.length);
         els.outSize.textContent = `≈ ${AL.formatBytes(total)}`;
         els.summary.textContent = `${segs.length} part${segs.length === 1 ? '' : 's'}`;
@@ -312,12 +311,13 @@
 
     async function exportOne(i) {
         const seg = segments()[i];
-        const name = AL.withExtension(nameFor(i), 'wav');
+        const format = els.format.value;
+        const name = AL.withExtension(nameFor(i), AL.extensionFor(format));
         try {
-            await ui.withBusy('Encoding WAV…', async () => {
+            await ui.withBusy('Preparing…', async (setLabel) => {
                 const part = renderPart(seg);
                 if (!part || part.length === 0) throw new Error(`Part ${i + 1} is silent, so there is nothing to save.`);
-                AL.downloadBlob(AL.encodeWav(part, Number(els.bitDepth.value)), name);
+                AL.downloadBlob(await AL.encodeWithLabel(part, format, setLabel), name);
             });
             ui.toast(`Saved ${name}`, 'success');
         } catch (error) {
@@ -327,7 +327,8 @@
 
     async function exportZip() {
         const segs = segments();
-        const depth = Number(els.bitDepth.value);
+        const format = els.format.value;
+        const ext = AL.extensionFor(format);
         const zipName = `${AL.safeFileName(state.base)}-split.zip`;
         try {
             const skipped = await ui.withBusy('Preparing parts…', async (setLabel) => {
@@ -336,18 +337,19 @@
                 let silent = 0;
                 for (let i = 0; i < segs.length; i++) {
                     await setLabel(`Encoding part ${i + 1} of ${segs.length}…`);
+                    const prefix = `Part ${i + 1} of ${segs.length}: encoding`;
                     const part = renderPart(segs[i]);
                     if (!part || part.length === 0) {
                         silent++;
                         continue;
                     }
                     // ZIP entries must be unique, or most tools keep only one.
-                    let name = AL.withExtension(nameFor(i), 'wav');
+                    let name = AL.withExtension(nameFor(i), ext);
                     for (let n = 2; used.has(name.toLowerCase()); n++) {
-                        name = AL.withExtension(`${nameFor(i)} (${n})`, 'wav');
+                        name = AL.withExtension(`${nameFor(i)} (${n})`, ext);
                     }
                     used.add(name.toLowerCase());
-                    entries.push({ name, blob: AL.encodeWav(part, depth) });
+                    entries.push({ name, blob: await AL.encodeWithLabel(part, format, setLabel, prefix) });
                 }
                 if (!entries.length) throw new Error('Every part is silent, so there is nothing to save.');
                 await setLabel('Packing ZIP…');
@@ -404,7 +406,7 @@
     $('#zoomIn').addEventListener('click', () => wave.zoomBy(2, player.currentTime));
     $('#zoomOut').addEventListener('click', () => wave.zoomBy(0.5, player.currentTime));
     $('#zoomFit').addEventListener('click', () => wave.zoomToFit());
-    els.bitDepth.addEventListener('change', renderList);
+    AL.formatPicker(els.format, renderList);
     els.exportZip.addEventListener('click', exportZip);
 
     function togglePlay() {

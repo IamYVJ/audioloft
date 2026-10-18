@@ -179,12 +179,8 @@
                     <div class="control-card">
                         <h3>Export</h3>
                         <div class="field">
-                            <label for="bitDepth">Format</label>
-                            <select class="input" id="bitDepth">
-                                <option value="16">WAV · 16-bit PCM</option>
-                                <option value="24">WAV · 24-bit PCM</option>
-                                <option value="32">WAV · 32-bit float</option>
-                            </select>
+                            <label for="format">Format</label>
+                            <select class="input" id="format"></select>
                         </div>
                         <label class="check"><input type="checkbox" id="trimSilence"> Trim silence from the start and end of each part</label>
                         <label class="check"><input type="checkbox" id="fadeEdges"> Short fade at each cut (10 ms)</label>
@@ -227,6 +223,7 @@
     </footer>
 
     <script src="js/audio-core.js"></script>
+    <script src="js/encoders.js"></script>
     <script src="js/player.js"></script>
     <script src="js/waveform.js"></script>
     <script src="js/ui.js"></script>

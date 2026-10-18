@@ -182,12 +182,8 @@
                             <input class="input" id="fileName" autocomplete="off" spellcheck="false">
                         </div>
                         <div class="field">
-                            <label for="bitDepth">Format</label>
-                            <select class="input" id="bitDepth">
-                                <option value="16">WAV · 16-bit PCM</option>
-                                <option value="24">WAV · 24-bit PCM</option>
-                                <option value="32">WAV · 32-bit float</option>
-                            </select>
+                            <label for="format">Format</label>
+                            <select class="input" id="format"></select>
                         </div>
                         <div class="stat"><span>Output length</span><strong id="outLength">0:00.000</strong></div>
                         <div class="stat"><span>Estimated size</span><strong id="outSize">0 B</strong></div>
@@ -195,7 +191,7 @@
                             <button type="button" class="btn btn-sm" id="previewButton">Preview result</button>
                             <button type="button" class="btn btn-primary" id="exportButton">
                                 <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>
-                                Export WAV
+                                Export
                             </button>
                         </div>
                     </div>
@@ -222,6 +218,7 @@
     </footer>
 
     <script src="js/audio-core.js"></script>
+    <script src="js/encoders.js"></script>
     <script src="js/player.js"></script>
     <script src="js/waveform.js"></script>
     <script src="js/ui.js"></script>

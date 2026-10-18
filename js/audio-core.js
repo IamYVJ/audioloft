@@ -122,14 +122,22 @@
             return null;
         }
 
-        // MP3 / ADTS AAC: skip any ID3v2 tag, then find a frame header.
+        // MP4 / M4A and WebM: the rate lives deep in the container (and for
+        // HE-AAC isn't the output rate at all), so leave it to the browser.
+        if (tag(4) === 'ftyp' || (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3)) {
+            return null;
+        }
+
+        // MP3 / ADTS AAC: skip any ID3v2 tag, then expect a frame header
+        // almost straight away. Scanning further would risk mistaking
+        // arbitrary data for a header.
         let o = 0;
         if (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33 && bytes.length > 10) {
             const size = ((bytes[6] & 0x7f) << 21) | ((bytes[7] & 0x7f) << 14) |
                 ((bytes[8] & 0x7f) << 7) | (bytes[9] & 0x7f);
             o = 10 + size + ((bytes[5] & 0x10) ? 10 : 0);
         }
-        const limit = Math.min(bytes.length - 4, o + 16384);
+        const limit = Math.min(bytes.length - 4, o + 4096);
         for (; o < limit; o++) {
             if (bytes[o] !== 0xff || (bytes[o + 1] & 0xe0) !== 0xe0) continue;
             const b1 = bytes[o + 1];
@@ -678,7 +686,7 @@
     }
 
     function withExtension(name, ext) {
-        const base = safeFileName(name).replace(/\.wav$/i, '');
+        const base = safeFileName(name).replace(/\.(wav|mp3|m4a|aac)$/i, '');
         return `${base}.${ext}`;
     }
 

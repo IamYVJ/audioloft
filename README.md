@@ -3,9 +3,9 @@
 **Trim, split and join audio in your browser. Nothing is uploaded.**
 
 AudioLoft is a static site: every edit happens in the page, using the browser's
-own Web Audio decoder and a hand-written WAV encoder. There is no backend and
-no third-party code, so it can be hosted on GitHub Pages and keeps working
-offline once it has been opened.
+own Web Audio decoder and on-device encoders (WAV, MP3, AAC). There is no
+backend and nothing is loaded from other sites, so it can be hosted on GitHub
+Pages and keeps working offline once it has been opened.
 
 ---
 
@@ -18,7 +18,16 @@ offline once it has been opened.
 | **Split** | Place split points by hand, every N seconds, into N equal parts, or in the middle of silent gaps. Drag points to adjust, name each part, play or download parts one by one, or download them all as a ZIP. Optional silence trimming and short fades at each cut. |
 | **Join** | Add any number of files in any supported format, reorder by drag and drop or the ↑ / ↓ buttons, preview each one. Join with no gap, a silent gap, or an equal-power crossfade. Mixed sample rates and channel layouts are matched automatically. |
 
-All three export **WAV** at 16-bit PCM, 24-bit PCM or 32-bit float.
+Every tool exports:
+
+| Format | Options | How |
+| --- | --- | --- |
+| **WAV** | 16-bit, 24-bit, 32-bit float | Hand-written encoder, lossless |
+| **MP3** | 128, 192, 256, 320 kbps (CBR) | [lamejs](https://github.com/zhuker/lamejs) in a Web Worker, so long exports don't freeze the page |
+| **AAC (.m4a)** | 96, 128, 192, 256 kbps | The browser's WebCodecs `AudioEncoder`, packed into an MP4 container by a small built-in writer. Offered only where the browser can encode AAC (Chrome and Edge; Safari and Firefox vary) |
+
+MP3 and AAC take mono or stereo at up to 48 kHz; anything else is mixed down or
+resampled first. The chosen format is remembered in the browser for next time.
 
 Every tool has a **demo track** button, so it can be tried without a file.
 
@@ -62,9 +71,11 @@ in and a WAV out are sample-identical apart from the edit itself.
 ## Privacy
 
 - **No uploads.** There is no server-side code. Open DevTools → Network while
-  editing: no requests are made.
-- **No third-party code.** No CDNs, fonts, analytics or libraries. Every page
-  declares `script-src 'self'` in its Content-Security-Policy.
+  editing: nothing is sent anywhere.
+- **Nothing loaded from elsewhere.** No CDNs, fonts or analytics. The one
+  third-party library, the lamejs MP3 encoder, is vendored in `lib/` and
+  served from this site. Every page declares `script-src 'self'` in its
+  Content-Security-Policy.
 - **Offline.** A service worker caches the site after the first visit, and the
   web app manifest makes it installable.
 
@@ -89,6 +100,8 @@ audioloft/
 ├── js/
 │   ├── audio-core.js     # Decode, edit (slice, cut, concat, fades, resample),
 │   │                     # silence detection, WAV encoder, ZIP writer
+│   ├── encoders.js       # Format picker; MP3 / AAC encoding; .m4a writer
+│   ├── mp3-worker.js     # Runs lamejs off the main thread
 │   ├── player.js         # Web Audio playback of a clip or a range
 │   ├── waveform.js       # Canvas waveform: ruler, zoom, selection, markers
 │   ├── ui.js             # Drop zones, toasts, busy overlay, shortcuts
@@ -99,7 +112,8 @@ audioloft/
 │   └── sw-register.js
 ├── sw.js                 # Offline cache (network first)
 ├── manifest.webmanifest
-└── icons/                # icon.svg (favicon) and PNG app icons
+├── icons/                # icon.svg (favicon) and PNG app icons
+└── lib/lame.min.js       # lamejs 1.2.1 MP3 encoder (LGPL-3.0), vendored
 ```
 
 ---
@@ -109,13 +123,17 @@ audioloft/
 - Decoded audio is held in memory as 32-bit float, roughly 21 MB per minute of
   stereo at 44.1 kHz. Very long files (several hours) can exceed what a tab is
   allowed to use; AudioLoft refuses those up front instead of crashing.
-- Output is WAV only. Compressed export (MP3, AAC) would need an encoder
-  library, which this project deliberately avoids.
+- AAC export depends on the browser's built-in encoder, so it isn't offered
+  everywhere. MP3 and WAV work in every supported browser.
 
 ---
 
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+`lib/lame.min.js` is [lamejs](https://github.com/zhuker/lamejs) 1.2.1, a
+JavaScript port of LAME, under the LGPL-3.0. It is shipped unmodified as a
+separate file (see `lib/README.md`) and can be swapped for another build.
 
 Built by [Yashvardhan Jain](https://iamyvj.github.io/).

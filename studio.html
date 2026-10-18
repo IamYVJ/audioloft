@@ -294,12 +294,8 @@
                                 <input class="input" id="fileName" value="studio-mix" autocomplete="off" spellcheck="false">
                             </div>
                             <div class="field">
-                                <label for="bitDepth">Format</label>
-                                <select class="input" id="bitDepth">
-                                    <option value="16">WAV 16-bit</option>
-                                    <option value="24">WAV 24-bit</option>
-                                    <option value="32">WAV 32-bit float</option>
-                                </select>
+                                <label for="format">Format</label>
+                                <select class="input" id="format"></select>
                             </div>
                         </div>
                         <label class="check"><input type="checkbox" id="preventClip" checked> Turn the mix down if it would clip</label>
@@ -308,7 +304,7 @@
                         <div class="export-actions">
                             <button type="button" class="btn btn-primary" id="exportMix">
                                 <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>
-                                Export mix (WAV)
+                                Export mix
                             </button>
                             <button type="button" class="btn btn-sm" id="exportStems">Export each lane (ZIP of stems)</button>
                             <button type="button" class="btn btn-sm" id="exportClips">Export each clip (ZIP)</button>
@@ -340,6 +336,7 @@
     </footer>
 
     <script src="js/audio-core.js"></script>
+    <script src="js/encoders.js"></script>
     <script src="js/player.js"></script>
     <script src="js/waveform.js"></script>
     <script src="js/ui.js"></script>

@@ -42,7 +42,7 @@
         channels: $('#channels'),
         normalize: $('#normalize'),
         fileName: $('#fileName'),
-        bitDepth: $('#bitDepth'),
+        format: $('#format'),
         outLength: $('#outLength'),
         buildButton: $('#buildButton'),
         exportButton: $('#exportButton'),
@@ -383,15 +383,14 @@
         }
     }
 
-    async function exportWav() {
+    async function exportAudio() {
         if (!state.tracks.length) return;
-        const name = AL.withExtension(els.fileName.value.trim() || 'joined', 'wav');
-        const depth = Number(els.bitDepth.value);
+        const format = els.format.value;
+        const name = AL.withExtension(els.fileName.value.trim() || 'joined', AL.extensionFor(format));
         try {
             await ui.withBusy('Joining…', async (setLabel) => {
                 const clip = await build(setLabel);
-                await setLabel('Encoding WAV…');
-                AL.downloadBlob(AL.encodeWav(clip, depth), name);
+                AL.downloadBlob(await AL.encodeWithLabel(clip, format, setLabel), name);
                 if (resultPlayer.clip !== clip) showResult(clip);
             });
             ui.toast(`Saved ${name}`, 'success');
@@ -429,8 +428,9 @@
         input.addEventListener('input', refreshOutput);
     });
 
+    AL.formatPicker(els.format);
     els.buildButton.addEventListener('click', joinAndPreview);
-    els.exportButton.addEventListener('click', exportWav);
+    els.exportButton.addEventListener('click', exportAudio);
     els.resultPlay.innerHTML = ui.ICONS.play;
     els.resultPlay.addEventListener('click', toggleResultPlay);
 

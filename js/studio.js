@@ -85,7 +85,7 @@
         sampleRate: $('#sampleRate'),
         channels: $('#channels'),
         fileName: $('#fileName'),
-        bitDepth: $('#bitDepth'),
+        format: $('#format'),
         preventClip: $('#preventClip'),
         normalize: $('#normalize'),
         outLength: $('#outLength')
@@ -1192,12 +1192,12 @@
             ui.toast('Every lane with clips is muted, so the mix would be silent.', 'error');
             return;
         }
-        const name = AL.withExtension(els.fileName.value.trim() || 'studio-mix', 'wav');
+        const format = els.format.value;
+        const name = AL.withExtension(els.fileName.value.trim() || 'studio-mix', AL.extensionFor(format));
         try {
             await ui.withBusy('Mixing…', async (setLabel) => {
                 const mix = finish(await MX.render(session, { sampleRate: exportRate() }), { normalize: els.normalize.checked });
-                await setLabel('Encoding WAV…');
-                AL.downloadBlob(AL.encodeWav(mix, Number(els.bitDepth.value)), name);
+                AL.downloadBlob(await AL.encodeWithLabel(mix, format, setLabel), name);
             });
             ui.toast(`Saved ${name}`, 'success');
         } catch (error) {
@@ -1209,6 +1209,8 @@
         const lanes = session.lanes.filter((lane) => session.clips.some((c) => c.laneId === lane.id));
         const base = AL.safeFileName(els.fileName.value.trim() || 'studio');
         const zipName = `${base}-stems.zip`;
+        const format = els.format.value;
+        const ext = AL.extensionFor(format);
         try {
             await ui.withBusy('Mixing stems…', async (setLabel) => {
                 const entries = [];
@@ -1223,10 +1225,10 @@
                         include: (l) => l.id === lane.id,
                         respectMuteSolo: false
                     }), { normalize: false });
-                    let name = AL.withExtension(`${String(i + 1).padStart(2, '0')} ${lane.name}`, 'wav');
-                    for (let n = 2; used.has(name.toLowerCase()); n++) name = AL.withExtension(`${i + 1} ${lane.name} (${n})`, 'wav');
+                    let name = AL.withExtension(`${String(i + 1).padStart(2, '0')} ${lane.name}`, ext);
+                    for (let n = 2; used.has(name.toLowerCase()); n++) name = AL.withExtension(`${i + 1} ${lane.name} (${n})`, ext);
                     used.add(name.toLowerCase());
-                    entries.push({ name, blob: AL.encodeWav(stem, Number(els.bitDepth.value)) });
+                    entries.push({ name, blob: await AL.encodeWithLabel(stem, format, setLabel, `Lane ${i + 1} of ${lanes.length}: encoding`) });
                 }
                 await setLabel('Packing ZIP…');
                 AL.downloadBlob(await AL.makeZip(entries), zipName);
@@ -1240,6 +1242,8 @@
     async function exportClips() {
         const list = orderedClips();
         const zipName = `${AL.safeFileName(els.fileName.value.trim() || 'studio')}-clips.zip`;
+        const format = els.format.value;
+        const ext = AL.extensionFor(format);
         try {
             await ui.withBusy('Preparing clips…', async (setLabel) => {
                 const entries = [];
@@ -1247,10 +1251,10 @@
                 for (let i = 0; i < list.length; i++) {
                     await setLabel(`Encoding clip ${i + 1} of ${list.length}…`);
                     const base = `${String(i + 1).padStart(2, '0')} ${list[i].name}`;
-                    let name = AL.withExtension(base, 'wav');
-                    for (let n = 2; used.has(name.toLowerCase()); n++) name = AL.withExtension(`${base} (${n})`, 'wav');
+                    let name = AL.withExtension(base, ext);
+                    for (let n = 2; used.has(name.toLowerCase()); n++) name = AL.withExtension(`${base} (${n})`, ext);
                     used.add(name.toLowerCase());
-                    entries.push({ name, blob: AL.encodeWav(renderPiece(list[i]), Number(els.bitDepth.value)) });
+                    entries.push({ name, blob: await AL.encodeWithLabel(renderPiece(list[i]), format, setLabel, `Clip ${i + 1} of ${list.length}: encoding`) });
                 }
                 await setLabel('Packing ZIP…');
                 AL.downloadBlob(await AL.makeZip(entries), zipName);
@@ -1264,10 +1268,11 @@
     async function downloadClip() {
         const clip = selected();
         if (!clip) return;
-        const name = AL.withExtension(clip.name, 'wav');
+        const format = els.format.value;
+        const name = AL.withExtension(clip.name, AL.extensionFor(format));
         try {
-            await ui.withBusy('Encoding WAV…', async () => {
-                AL.downloadBlob(AL.encodeWav(renderPiece(clip), Number(els.bitDepth.value)), name);
+            await ui.withBusy('Preparing…', async (setLabel) => {
+                AL.downloadBlob(await AL.encodeWithLabel(renderPiece(clip), format, setLabel), name);
             });
             ui.toast(`Saved ${name}`, 'success');
         } catch (error) {
@@ -1415,6 +1420,7 @@
         mixer.refresh();
         ui.toast(`All ${list.length} clips are now on one lane, end to end`, 'success');
     });
+    AL.formatPicker(els.format);
     $('#exportMix').addEventListener('click', exportMix);
     $('#exportStems').addEventListener('click', exportStems);
     $('#exportClips').addEventListener('click', exportClips);
