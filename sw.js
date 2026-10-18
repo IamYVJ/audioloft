@@ -6,7 +6,7 @@
 //
 // Bump CACHE_VERSION when the precache list changes.
 
-const CACHE_VERSION = 'audioloft-v1';
+const CACHE_VERSION = 'audioloft-v2';
 
 const PRECACHE_URLS = [
     './',
@@ -14,6 +14,7 @@ const PRECACHE_URLS = [
     'trim.html',
     'split.html',
     'join.html',
+    'studio.html',
     'manifest.webmanifest',
     'css/style.css',
     'js/audio-core.js',
@@ -23,6 +24,7 @@ const PRECACHE_URLS = [
     'js/trim.js',
     'js/split.js',
     'js/join.js',
+    'js/studio.js',
     'js/home.js',
     'js/sw-register.js',
     'icons/icon.svg',

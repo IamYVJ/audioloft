@@ -19,6 +19,7 @@
     'use strict';
 
     const BLOCK = 256;
+    const PEAK_CACHE = new WeakMap();
     const RULER = 24;
 
     const SEGMENT_COLORS = ['#ffb547', '#ff7a59', '#7cc7ff', '#b69cff', '#6fdc9b', '#ff8fc1'];
@@ -98,6 +99,12 @@
 
         buildPeaks() {
             const clip = this.clip;
+            // Studio switches between clips of the same source often; the
+            // summary only depends on the audio, so keep one per clip.
+            if (PEAK_CACHE.has(clip)) {
+                this.peaks = PEAK_CACHE.get(clip);
+                return;
+            }
             const blocks = Math.ceil(clip.length / BLOCK);
             const min = new Float32Array(blocks);
             const max = new Float32Array(blocks);
@@ -117,6 +124,7 @@
                 max[b] = hi;
             }
             this.peaks = { min, max };
+            PEAK_CACHE.set(clip, this.peaks);
         }
 
         setSelection(start, end, notify = true) {
@@ -655,8 +663,9 @@
         ctx.closePath();
     }
 
-    // Small static waveform for list rows.
-    function drawMiniWave(canvas, clip, color = '#ffb547') {
+    // Small static waveform for list rows. `start` / `end` (seconds) draw
+    // just part of the clip.
+    function drawMiniWave(canvas, clip, color = '#ffb547', start = 0, end = clip.duration) {
         const dpr = Math.max(1, global.devicePixelRatio || 1);
         const width = canvas.clientWidth || 300;
         const height = canvas.clientHeight || 30;
@@ -664,12 +673,15 @@
         canvas.height = Math.round(height * dpr);
         const ctx = canvas.getContext('2d');
         const cols = Math.max(1, Math.floor(canvas.width / (3 * dpr)));
-        const per = clip.length / cols;
+        const first = Math.max(0, Math.floor(start * clip.sampleRate));
+        const last = Math.min(clip.length, Math.ceil(end * clip.sampleRate));
+        const per = Math.max(1, last - first) / cols;
         const mid = canvas.height / 2;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = color;
         for (let i = 0; i < cols; i++) {
-            const a = Math.floor(i * per);
-            const b = Math.min(clip.length, Math.floor((i + 1) * per));
+            const a = first + Math.floor(i * per);
+            const b = Math.min(last, first + Math.floor((i + 1) * per));
             // Sample sparsely: this is decoration, not measurement.
             const stride = Math.max(1, Math.floor((b - a) / 400));
             let peak = 0;
