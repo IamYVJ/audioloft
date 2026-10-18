@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <title>AudioLoft — Trim, Split &amp; Join Audio in Your Browser</title>
+    <meta name="description" content="Free, private audio tools: trim, split and join MP3, WAV, FLAC, OGG and more right in your browser. No uploads, no sign-up, works offline.">
+    <meta name="theme-color" content="#0a0908">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="AudioLoft">
+    <meta property="og:title" content="AudioLoft — Trim, Split & Join Audio in Your Browser">
+    <meta property="og:description" content="Private audio tools that run entirely on your device. No uploads, no sign-up.">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#mainContent">Skip to main content</a>
+    <div class="ambient" aria-hidden="true"></div>
+
+    <svg class="sprite" aria-hidden="true" focusable="false">
+        <symbol id="mark" viewBox="0 0 32 32">
+            <linearGradient id="markGradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffc66e"/>
+                <stop offset="1" stop-color="#ff7a59"/>
+            </linearGradient>
+            <rect width="32" height="32" rx="9" fill="url(#markGradient)"/>
+            <g fill="#1d1206">
+                <rect x="5.6" y="17" width="2.8" height="8" rx="1.4"/>
+                <rect x="10.2" y="12" width="2.8" height="13" rx="1.4"/>
+                <rect x="14.6" y="7" width="2.8" height="18" rx="1.4"/>
+                <rect x="19" y="12" width="2.8" height="13" rx="1.4"/>
+                <rect x="23.6" y="17" width="2.8" height="8" rx="1.4"/>
+            </g>
+        </symbol>
+    </svg>
+
+    <header>
+        <nav class="container" aria-label="Main">
+            <a href="./" class="logo-link" aria-label="AudioLoft home">
+                <svg class="logo-mark" aria-hidden="true"><use href="#mark"/></svg>
+                <span class="logo-text">Audio<span class="accent">Loft</span></span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="trim.html">Trim</a></li>
+                <li><a href="split.html">Split</a></li>
+                <li><a href="join.html">Join</a></li>
+                <li class="nav-extra"><a href="#about">About</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main id="mainContent" tabindex="-1">
+        <section class="hero" id="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <div class="hero-badge">
+                        <span class="badge-dot" aria-hidden="true"></span>
+                        <span>100% in-browser · nothing is uploaded</span>
+                    </div>
+                    <h1 class="hero-title">Shape your sound,<br><span class="highlight">right here.</span></h1>
+                    <p class="hero-subtitle">
+                        Trim, split and join audio with a precise waveform editor that runs
+                        <strong>entirely on your device</strong>. No uploads, no accounts, no watermarks.
+                    </p>
+                    <div class="hero-actions">
+                        <a class="btn btn-primary" href="#tools">
+                            Open the tools
+                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m0 0l-6-6m6 6l6-6"/></svg>
+                        </a>
+                        <a class="btn" href="#about">How it works</a>
+                    </div>
+
+                    <div class="hero-wave" id="heroWave" aria-hidden="true"></div>
+
+                    <ul class="feature-row" aria-label="Highlights">
+                        <li class="feature-item">
+                            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/></svg>
+                            Zero uploads
+                        </li>
+                        <li class="feature-item">
+                            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12h3l3-8 4 16 3-8h7"/></svg>
+                            Lossless WAV out
+                        </li>
+                        <li class="feature-item">
+                            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                            Instant, no queues
+                        </li>
+                        <li class="feature-item">
+                            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                            Works offline
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="tools" aria-labelledby="toolsTitle">
+            <div class="container">
+                <div class="section-header">
+                    <span class="eyebrow">The toolkit</span>
+                    <h2 class="section-title" id="toolsTitle">Three tools. One quiet loft.</h2>
+                    <p class="section-description">Each one opens your file straight into an interactive waveform, so you can hear exactly what you'll get before you export.</p>
+                </div>
+
+                <div class="tools-grid">
+                    <a class="tool-card" href="trim.html">
+                        <div class="tool-icon" aria-hidden="true">
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12"/></svg>
+                        </div>
+                        <h3>Trim</h3>
+                        <p>Keep just the part you want, or cut a section out of the middle.</p>
+                        <ul>
+                            <li>Drag handles or type exact times</li>
+                            <li>Fade in, fade out and normalize</li>
+                            <li>Loop the selection to get it perfect</li>
+                        </ul>
+                        <span class="tool-link">Start trimming
+                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7l7 7-7 7"/></svg>
+                        </span>
+                    </a>
+
+                    <a class="tool-card" href="split.html">
+                        <div class="tool-icon" aria-hidden="true">
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M3 9v6M7 6v12M17 7v10M21 10v4"/></svg>
+                        </div>
+                        <h3>Split</h3>
+                        <p>Turn one long recording into separate, neatly named tracks.</p>
+                        <ul>
+                            <li>Split by hand, by interval or into equal parts</li>
+                            <li>Auto-detect silences between songs</li>
+                            <li>Download every part as one ZIP</li>
+                        </ul>
+                        <span class="tool-link">Start splitting
+                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7l7 7-7 7"/></svg>
+                        </span>
+                    </a>
+
+                    <a class="tool-card" href="join.html">
+                        <div class="tool-icon" aria-hidden="true">
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6a4 4 0 014 4v0a4 4 0 004 4h4M3 17h6a4 4 0 004-4"/><path d="M18 12l3 3-3 3"/></svg>
+                        </div>
+                        <h3>Join</h3>
+                        <p>Stitch tracks together in any order, across formats and sample rates.</p>
+                        <ul>
+                            <li>Drag to reorder, preview each track</li>
+                            <li>Silent gaps or smooth crossfades</li>
+                            <li>Auto-matches rate and channels</li>
+                        </ul>
+                        <span class="tool-link">Start joining
+                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7l7 7-7 7"/></svg>
+                        </span>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="about" aria-labelledby="aboutTitle">
+            <div class="container">
+                <div class="section-header">
+                    <span class="eyebrow">Why AudioLoft</span>
+                    <h2 class="section-title" id="aboutTitle">Built for privacy, tuned for precision</h2>
+                    <p class="section-description">Your browser already has a capable audio engine. AudioLoft puts a careful editor on top of it.</p>
+                </div>
+
+                <div class="about-grid">
+                    <div class="about-card">
+                        <div class="about-number">01</div>
+                        <h3>Private by design</h3>
+                        <p>There's no server to upload to. Files are read, edited and saved inside this tab, and never leave your device.</p>
+                    </div>
+                    <div class="about-card">
+                        <div class="about-number">02</div>
+                        <h3>Sample-accurate</h3>
+                        <p>Zoom down to individual samples, type exact timestamps, and cuts are crossfaded for a few milliseconds so they never click.</p>
+                    </div>
+                    <div class="about-card">
+                        <div class="about-number">03</div>
+                        <h3>Lossless output</h3>
+                        <p>Audio is decoded at its original sample rate and exported as 16-bit, 24-bit or 32-bit float WAV, with no re-compression.</p>
+                    </div>
+                    <div class="about-card">
+                        <div class="about-number">04</div>
+                        <h3>Free &amp; open</h3>
+                        <p>No accounts, limits or watermarks, and no third-party libraries. Install it as an app and it works offline.</p>
+                    </div>
+                </div>
+
+                <div class="how-panel">
+                    <div>
+                        <h3>How it works</h3>
+                        <p>AudioLoft uses the Web Audio API to decode your file, plain JavaScript to edit the raw samples, and a hand-written WAV encoder to save the result, all inside your browser.</p>
+                        <div class="formats" aria-label="Supported input formats">
+                            <span class="chip">MP3</span>
+                            <span class="chip">WAV</span>
+                            <span class="chip">FLAC</span>
+                            <span class="chip">OGG</span>
+                            <span class="chip">Opus</span>
+                            <span class="chip">M4A / AAC</span>
+                            <span class="chip">WebM</span>
+                            <span class="chip">AIFF</span>
+                        </div>
+                    </div>
+                    <ol class="steps">
+                        <li><span><strong>Drop a file.</strong> It's decoded locally, at its own sample rate.</span></li>
+                        <li><span><strong>Edit on the waveform.</strong> Select, split or reorder, and listen as you go.</span></li>
+                        <li><span><strong>Export.</strong> A WAV (or a ZIP of them) is written straight to your downloads.</span></li>
+                    </ol>
+                </div>
+
+                <p class="developer-note">
+                    Made by <a href="https://iamyvj.github.io/" target="_blank" rel="noopener noreferrer">Yashvardhan Jain</a>.
+                    Format support depends on your browser: anything it can play, AudioLoft can edit.
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <a href="./" class="logo-link" aria-label="AudioLoft home">
+                    <svg class="logo-mark" aria-hidden="true"><use href="#mark"/></svg>
+                    <span class="logo-text">Audio<span class="accent">Loft</span></span>
+                </a>
+                <p class="footer-info">&copy; 2026 AudioLoft · Your audio never leaves your device.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/home.js"></script>
+    <script src="js/sw-register.js"></script>
+</body>
+</html>

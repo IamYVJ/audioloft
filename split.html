@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <title>Split Audio — AudioLoft</title>
+    <meta name="description" content="Split an audio file into parts by hand, at fixed intervals, into equal parts or at silences. Download each part or all of them as a ZIP. Runs entirely in your browser.">
+    <meta name="theme-color" content="#0a0908">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#mainContent">Skip to main content</a>
+    <div class="ambient" aria-hidden="true"></div>
+
+    <svg class="sprite" aria-hidden="true" focusable="false">
+        <symbol id="mark" viewBox="0 0 32 32">
+            <linearGradient id="markGradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffc66e"/>
+                <stop offset="1" stop-color="#ff7a59"/>
+            </linearGradient>
+            <rect width="32" height="32" rx="9" fill="url(#markGradient)"/>
+            <g fill="#1d1206">
+                <rect x="5.6" y="17" width="2.8" height="8" rx="1.4"/>
+                <rect x="10.2" y="12" width="2.8" height="13" rx="1.4"/>
+                <rect x="14.6" y="7" width="2.8" height="18" rx="1.4"/>
+                <rect x="19" y="12" width="2.8" height="13" rx="1.4"/>
+                <rect x="23.6" y="17" width="2.8" height="8" rx="1.4"/>
+            </g>
+        </symbol>
+    </svg>
+
+    <header>
+        <nav class="container" aria-label="Main">
+            <a href="./" class="logo-link" aria-label="AudioLoft home">
+                <svg class="logo-mark" aria-hidden="true"><use href="#mark"/></svg>
+                <span class="logo-text">Audio<span class="accent">Loft</span></span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="trim.html">Trim</a></li>
+                <li><a href="split.html" aria-current="page">Split</a></li>
+                <li><a href="join.html">Join</a></li>
+                <li class="nav-extra"><a href="./#about">About</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main id="mainContent" class="tool-page" tabindex="-1">
+        <div class="container">
+            <a class="back-link" href="./">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7 7l-7-7 7-7"/></svg>
+                All tools
+            </a>
+
+            <div class="tool-intro">
+                <div>
+                    <h1>Split <span class="highlight">audio</span></h1>
+                    <p>Cut one recording into several tracks: place split points by hand, at fixed intervals, into equal parts, or wherever there's silence.</p>
+                </div>
+                <span class="privacy-pill">
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 118 0v3"/></svg>
+                    Processed on your device
+                </span>
+            </div>
+
+            <section class="panel" id="dropStage" aria-label="Choose a file">
+                <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-describedby="dropHint">
+                    <input type="file" id="fileInput" tabindex="-1">
+                    <div class="drop-icon" aria-hidden="true">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M3 8v8M7 5v14M17 6v12M21 9v6" opacity="0.6"/></svg>
+                    </div>
+                    <p class="drop-title">Drop an audio file or <span class="accent">browse</span></p>
+                    <p class="drop-hint" id="dropHint">MP3, WAV, FLAC, OGG, Opus, M4A, AAC, WebM · up to 500 MB</p>
+                    <div class="drop-demo">
+                        <button type="button" class="link-button" id="demoButton">No file handy? Try a demo track</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel" id="loadingStage" hidden aria-live="polite">
+                <div class="loading">
+                    <div class="spinner" aria-hidden="true"></div>
+                    <p id="loadingText">Decoding audio…</p>
+                </div>
+            </section>
+
+            <section class="panel editor" id="editStage" hidden aria-labelledby="fileTitle">
+                <div class="file-bar">
+                    <div class="file-name">
+                        <div class="file-badge" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                        </div>
+                        <div>
+                            <h2 id="fileTitle" tabindex="-1">Untitled</h2>
+                            <div class="file-meta" id="fileMeta"></div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm" id="replaceButton">Open another file</button>
+                </div>
+
+                <div id="waveform" aria-label="Waveform with split points. Click to move the playhead; press M to add a split at the playhead."></div>
+                <p class="wave-hint">Double-click to add a split point, drag one to move it, double-click it to remove it. <kbd>Ctrl</kbd> + scroll to zoom.</p>
+
+                <div class="transport">
+                    <div class="transport-group">
+                        <button type="button" class="btn btn-primary btn-play" id="playButton" aria-label="Play"></button>
+                        <button type="button" class="btn btn-sm" id="addSplit" title="Add split at playhead (M)">
+                            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v18M5 12h4m6 0h4"/></svg>
+                            Split at playhead
+                        </button>
+                        <span class="time-display"><strong id="timeNow">0:00.000</strong> / <span id="timeTotal">0:00.000</span></span>
+                    </div>
+                    <div class="transport-group">
+                        <button type="button" class="btn btn-sm btn-icon" id="zoomOut" aria-label="Zoom out" title="Zoom out (−)">
+                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M20 20l-3.5-3.5"/></svg>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-icon" id="zoomIn" aria-label="Zoom in" title="Zoom in (+)">
+                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6M20 20l-3.5-3.5"/></svg>
+                        </button>
+                        <button type="button" class="btn btn-sm" id="zoomFit">Fit</button>
+                    </div>
+                </div>
+
+                <div class="controls two">
+                    <div class="control-card">
+                        <h3>Place split points</h3>
+                        <div class="tabs" role="tablist" aria-label="Split method">
+                            <button type="button" role="tab" id="tab-manual" aria-controls="panel-manual" aria-selected="true">By hand</button>
+                            <button type="button" role="tab" id="tab-interval" aria-controls="panel-interval" aria-selected="false" tabindex="-1">Every N sec</button>
+                            <button type="button" role="tab" id="tab-equal" aria-controls="panel-equal" aria-selected="false" tabindex="-1">Equal parts</button>
+                            <button type="button" role="tab" id="tab-silence" aria-controls="panel-silence" aria-selected="false" tabindex="-1">At silence</button>
+                        </div>
+
+                        <div role="tabpanel" id="panel-manual" aria-labelledby="tab-manual">
+                            <p class="field"><small>Play the track and press <strong>M</strong> (or the button above) wherever a new part should start, or double-click the waveform.</small></p>
+                            <div class="transport-group">
+                                <button type="button" class="btn btn-sm" id="addSplitManual">Split at playhead</button>
+                                <button type="button" class="btn btn-sm btn-danger" id="clearSplits">Clear all splits</button>
+                            </div>
+                        </div>
+
+                        <div role="tabpanel" id="panel-interval" aria-labelledby="tab-interval" hidden>
+                            <div class="field">
+                                <label for="intervalInput">Length of each part</label>
+                                <input class="input mono" id="intervalInput" value="0:30.000" inputmode="decimal" autocomplete="off" spellcheck="false">
+                                <small>Minutes and seconds, e.g. <code>2:30</code>, or plain seconds. The last part keeps whatever is left.</small>
+                            </div>
+                            <button type="button" class="btn btn-sm" id="applyInterval">Place split points</button>
+                        </div>
+
+                        <div role="tabpanel" id="panel-equal" aria-labelledby="tab-equal" hidden>
+                            <div class="field">
+                                <label for="partsInput">Number of parts</label>
+                                <input class="input" id="partsInput" type="number" min="2" max="500" step="1" value="3">
+                            </div>
+                            <button type="button" class="btn btn-sm" id="applyEqual">Place split points</button>
+                        </div>
+
+                        <div role="tabpanel" id="panel-silence" aria-labelledby="tab-silence" hidden>
+                            <div class="field-row">
+                                <div class="field">
+                                    <label for="silenceThreshold">Quieter than (dB)</label>
+                                    <input class="input" id="silenceThreshold" type="number" min="-90" max="-10" step="1" value="-40">
+                                </div>
+                                <div class="field">
+                                    <label for="silenceMin">For at least (s)</label>
+                                    <input class="input" id="silenceMin" type="number" min="0.05" step="0.1" value="0.6">
+                                </div>
+                            </div>
+                            <p class="field"><small>Good for albums, podcasts and recordings with pauses. Split points land in the middle of each silent gap.</small></p>
+                            <button type="button" class="btn btn-sm" id="applySilence">Find silences</button>
+                        </div>
+                    </div>
+
+                    <div class="control-card">
+                        <h3>Export</h3>
+                        <div class="field">
+                            <label for="bitDepth">Format</label>
+                            <select class="input" id="bitDepth">
+                                <option value="16">WAV · 16-bit PCM</option>
+                                <option value="24">WAV · 24-bit PCM</option>
+                                <option value="32">WAV · 32-bit float</option>
+                            </select>
+                        </div>
+                        <label class="check"><input type="checkbox" id="trimSilence"> Trim silence from the start and end of each part</label>
+                        <label class="check"><input type="checkbox" id="fadeEdges"> Short fade at each cut (10 ms)</label>
+                        <div class="stat"><span>Parts</span><strong id="partCount">1</strong></div>
+                        <div class="stat"><span>Estimated size</span><strong id="outSize">0 B</strong></div>
+                        <div class="export-actions">
+                            <button type="button" class="btn btn-primary" id="exportZip">
+                                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>
+                                Download all as ZIP
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-card result-list">
+                    <div class="list-head">
+                        <h3>Parts</h3>
+                        <span class="chip" id="listSummary"></span>
+                    </div>
+                    <ol class="item-list" id="segmentList"></ol>
+                </div>
+
+                <div class="shortcuts" aria-label="Keyboard shortcuts">
+                    <span><kbd>Space</kbd> Play / pause</span>
+                    <span><kbd>M</kbd> Split at playhead</span>
+                    <span><kbd>←</kbd> <kbd>→</kbd> Nudge playhead</span>
+                    <span><kbd>+</kbd> <kbd>−</kbd> Zoom</span>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <p class="footer-tagline">Your audio never leaves your device.</p>
+                <p class="footer-info">&copy; 2026 AudioLoft · Built by <a href="https://iamyvj.github.io/" target="_blank" rel="noopener noreferrer">Yashvardhan Jain</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/audio-core.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/waveform.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/split.js"></script>
+    <script src="js/sw-register.js"></script>
+</body>
+</html>

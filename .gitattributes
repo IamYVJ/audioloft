@@ -1,2 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Binary assets: never normalise line endings inside them.
+*.png binary
+*.wav binary
+*.mp3 binary
+*.zip binary

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <title>Join Audio — AudioLoft</title>
+    <meta name="description" content="Join several audio files into one, with gaps or crossfades, mixing formats and sample rates. Export lossless WAV. Runs entirely in your browser.">
+    <meta name="theme-color" content="#0a0908">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#mainContent">Skip to main content</a>
+    <div class="ambient" aria-hidden="true"></div>
+
+    <svg class="sprite" aria-hidden="true" focusable="false">
+        <symbol id="mark" viewBox="0 0 32 32">
+            <linearGradient id="markGradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffc66e"/>
+                <stop offset="1" stop-color="#ff7a59"/>
+            </linearGradient>
+            <rect width="32" height="32" rx="9" fill="url(#markGradient)"/>
+            <g fill="#1d1206">
+                <rect x="5.6" y="17" width="2.8" height="8" rx="1.4"/>
+                <rect x="10.2" y="12" width="2.8" height="13" rx="1.4"/>
+                <rect x="14.6" y="7" width="2.8" height="18" rx="1.4"/>
+                <rect x="19" y="12" width="2.8" height="13" rx="1.4"/>
+                <rect x="23.6" y="17" width="2.8" height="8" rx="1.4"/>
+            </g>
+        </symbol>
+    </svg>
+
+    <header>
+        <nav class="container" aria-label="Main">
+            <a href="./" class="logo-link" aria-label="AudioLoft home">
+                <svg class="logo-mark" aria-hidden="true"><use href="#mark"/></svg>
+                <span class="logo-text">Audio<span class="accent">Loft</span></span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="trim.html">Trim</a></li>
+                <li><a href="split.html">Split</a></li>
+                <li><a href="join.html" aria-current="page">Join</a></li>
+                <li class="nav-extra"><a href="./#about">About</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main id="mainContent" class="tool-page" tabindex="-1">
+        <div class="container">
+            <a class="back-link" href="./">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7 7l-7-7 7-7"/></svg>
+                All tools
+            </a>
+
+            <div class="tool-intro">
+                <div>
+                    <h1>Join <span class="highlight">audio</span></h1>
+                    <p>Stitch several tracks into one, in any order. Mix formats and sample rates freely, add gaps or smooth crossfades, and export a single WAV.</p>
+                </div>
+                <span class="privacy-pill">
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 118 0v3"/></svg>
+                    Processed on your device
+                </span>
+            </div>
+
+            <section class="panel" id="dropStage" aria-label="Choose files">
+                <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-describedby="dropHint">
+                    <input type="file" id="fileInput" tabindex="-1">
+                    <div class="drop-icon" aria-hidden="true">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4M17 12h4M7 8v8M17 8v8"/><path d="M10 12h4"/></svg>
+                    </div>
+                    <p class="drop-title">Drop two or more audio files or <span class="accent">browse</span></p>
+                    <p class="drop-hint" id="dropHint">MP3, WAV, FLAC, OGG, Opus, M4A, AAC, WebM · up to 500 MB each</p>
+                    <div class="drop-demo">
+                        <button type="button" class="link-button" id="demoButton">No files handy? Try three demo tracks</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel editor" id="editStage" hidden aria-labelledby="tracksTitle">
+                <div class="list-head">
+                    <h2 class="sr-only" id="tracksTitle">Tracks</h2>
+                    <div class="file-name">
+                        <div class="file-badge" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                        </div>
+                        <div>
+                            <p class="item-title">Tracks, in playing order</p>
+                            <div class="file-meta"><span class="chip" id="trackCount">0 tracks</span><span class="chip" id="trackTotal">0:00.00</span></div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-danger" id="clearAll">Remove all</button>
+                </div>
+
+                <ol class="item-list" id="trackList" aria-label="Tracks"></ol>
+
+                <div class="dropzone compact" id="addZone" tabindex="0" role="button" aria-label="Add more files">
+                    <input type="file" tabindex="-1">
+                    <div class="drop-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    </div>
+                    <p class="drop-title">Add more files</p>
+                    <p class="drop-hint">or drop them here · drag rows to reorder</p>
+                </div>
+
+                <div class="controls">
+                    <div class="control-card">
+                        <h3>Between tracks</h3>
+                        <div class="field">
+                            <span class="label" id="transitionLabel">Transition</span>
+                            <div class="segmented" role="radiogroup" aria-labelledby="transitionLabel">
+                                <label><input type="radio" name="transition" value="none" checked><span>None</span></label>
+                                <label><input type="radio" name="transition" value="gap"><span>Gap</span></label>
+                                <label><input type="radio" name="transition" value="crossfade"><span>Crossfade</span></label>
+                            </div>
+                        </div>
+                        <div class="field" id="transitionField" hidden>
+                            <label for="transitionSeconds" id="transitionSecondsLabel">Seconds</label>
+                            <input class="input" id="transitionSeconds" type="number" min="0" max="30" step="0.1" value="1">
+                        </div>
+                    </div>
+
+                    <div class="control-card">
+                        <h3>Output</h3>
+                        <div class="field-row">
+                            <div class="field">
+                                <label for="sampleRate">Sample rate</label>
+                                <select class="input" id="sampleRate">
+                                    <option value="auto">Highest of the tracks</option>
+                                    <option value="44100">44.1 kHz</option>
+                                    <option value="48000">48 kHz</option>
+                                    <option value="96000">96 kHz</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="channels">Channels</label>
+                                <select class="input" id="channels">
+                                    <option value="auto">Match the tracks</option>
+                                    <option value="2">Stereo</option>
+                                    <option value="1">Mono</option>
+                                </select>
+                            </div>
+                        </div>
+                        <label class="check"><input type="checkbox" id="normalize"> Normalize peak to −1 dB</label>
+                    </div>
+
+                    <div class="control-card">
+                        <h3>Export</h3>
+                        <div class="field">
+                            <label for="fileName">File name</label>
+                            <input class="input" id="fileName" value="joined" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="field">
+                            <label for="bitDepth">Format</label>
+                            <select class="input" id="bitDepth">
+                                <option value="16">WAV · 16-bit PCM</option>
+                                <option value="24">WAV · 24-bit PCM</option>
+                                <option value="32">WAV · 32-bit float</option>
+                            </select>
+                        </div>
+                        <div class="stat"><span>Output length</span><strong id="outLength">0:00.000</strong></div>
+                        <div class="export-actions">
+                            <button type="button" class="btn btn-sm" id="buildButton">Join &amp; preview</button>
+                            <button type="button" class="btn btn-primary" id="exportButton">
+                                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>
+                                Export WAV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="result" id="resultPanel" hidden aria-labelledby="resultTitle">
+                    <div class="list-head">
+                        <h3 id="resultTitle" tabindex="-1">Joined result</h3>
+                        <div class="file-meta" id="resultMeta"></div>
+                    </div>
+                    <div id="resultWave" aria-label="Waveform of the joined result. Click to move the playhead."></div>
+                    <div class="transport">
+                        <div class="transport-group">
+                            <button type="button" class="btn btn-primary btn-play" id="resultPlay" aria-label="Play"></button>
+                            <span class="time-display"><strong id="resultTime">0:00.000</strong> / <span id="resultTotal">0:00.000</span></span>
+                        </div>
+                        <p class="wave-hint" id="resultStale" hidden>Settings changed since this preview. Join again to update it.</p>
+                    </div>
+                </div>
+
+                <div class="shortcuts" aria-label="Keyboard shortcuts">
+                    <span><kbd>Space</kbd> Play / pause the joined preview</span>
+                    <span>Reorder with drag and drop, or the <kbd>↑</kbd> <kbd>↓</kbd> buttons</span>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <p class="footer-tagline">Your audio never leaves your device.</p>
+                <p class="footer-info">&copy; 2026 AudioLoft · Built by <a href="https://iamyvj.github.io/" target="_blank" rel="noopener noreferrer">Yashvardhan Jain</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/audio-core.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/waveform.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/join.js"></script>
+    <script src="js/sw-register.js"></script>
+</body>
+</html>
