@@ -667,7 +667,8 @@
     // just part of the clip.
     function drawMiniWave(canvas, clip, color = '#ffb547', start = 0, end = clip.duration) {
         const dpr = Math.max(1, global.devicePixelRatio || 1);
-        const width = canvas.clientWidth || 300;
+        // Capped: a long clip zoomed in can be wider than a canvas may be.
+        const width = Math.min(4096, canvas.clientWidth || 300);
         const height = canvas.clientHeight || 30;
         canvas.width = Math.round(width * dpr);
         canvas.height = Math.round(height * dpr);

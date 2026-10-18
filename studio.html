@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
     <title>Audio Studio — AudioLoft</title>
-    <meta name="description" content="Trim, split and join multiple audio tracks in one editor, then export one joined WAV or every clip separately. Runs entirely in your browser.">
+    <meta name="description" content="A multitrack audio editor in your browser: layer tracks on lanes, trim, split and arrange clips, then export the mix, stems or clips as WAV. Nothing is uploaded.">
     <meta name="theme-color" content="#0a0908">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -59,7 +59,7 @@
             <div class="tool-intro">
                 <div>
                     <h1>Audio <span class="highlight">studio</span></h1>
-                    <p>Bring in several tracks, trim each one, split them into clips, arrange the clips in any order, and export them joined into one file or as separate files.</p>
+                    <p>A multitrack editor in your browser. Layer tracks on lanes that play together, line clips up one after another, trim and split anything, then export the mix, each lane, or each clip.</p>
                 </div>
                 <span class="privacy-pill">
                     <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 118 0v3"/></svg>
@@ -71,29 +71,45 @@
                 <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-describedby="dropHint">
                     <input type="file" id="fileInput" tabindex="-1">
                     <div class="drop-icon" aria-hidden="true">
-                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="7" height="5" rx="1.5"/><rect x="12" y="5" width="9" height="5" rx="1.5"/><rect x="3" y="14" width="11" height="5" rx="1.5"/><rect x="16" y="14" width="5" height="5" rx="1.5"/></svg>
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="10" height="4" rx="1.5"/><rect x="8" y="10" width="13" height="4" rx="1.5"/><rect x="3" y="16" width="7" height="4" rx="1.5"/><rect x="12" y="16" width="6" height="4" rx="1.5"/></svg>
                     </div>
                     <p class="drop-title">Drop your audio files or <span class="accent">browse</span></p>
-                    <p class="drop-hint" id="dropHint">One or many · MP3, WAV, FLAC, OGG, Opus, M4A, AAC, WebM · up to 500 MB each</p>
+                    <p class="drop-hint" id="dropHint">Each file gets its own lane · MP3, WAV, FLAC, OGG, Opus, M4A, AAC, WebM · up to 500 MB each</p>
                     <div class="drop-demo">
-                        <button type="button" class="link-button" id="demoButton">No files handy? Try with demo tracks</button>
+                        <button type="button" class="link-button" id="demoButton">No files handy? Try a demo session</button>
                     </div>
                 </div>
             </section>
 
-            <section class="panel editor" id="studioStage" hidden aria-labelledby="projectTitle">
-                <!-- Project: the arranged clips, played or exported as one -->
-                <div class="project-bar">
-                    <div>
-                        <h2 class="project-title" id="projectTitle">Arrangement</h2>
-                        <div class="file-meta">
-                            <span class="chip" id="clipCount">0 clips</span>
-                            <span class="chip" id="projectLength">0:00.00</span>
-                        </div>
+            <section class="panel editor" id="studioStage" hidden aria-label="Studio">
+                <div class="studio-toolbar">
+                    <div class="transport-group">
+                        <button type="button" class="btn btn-primary btn-play" id="mixPlay" aria-label="Play" title="Play / pause (Space)"></button>
+                        <button type="button" class="btn btn-sm btn-icon" id="rewind" aria-label="Back to start" title="Back to start (Home)">
+                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="2.6" height="14" rx="1"/><path d="M19 5.9v12.2a1 1 0 01-1.5.86L9 13.4a1.6 1.6 0 010-2.8l8.5-5.56A1 1 0 0119 5.9z"/></svg>
+                        </button>
+                        <span class="time-display"><strong id="mixTime">0:00.000</strong> / <span id="mixTotal">0:00.000</span></span>
                     </div>
                     <div class="transport-group">
-                        <button type="button" class="btn btn-primary btn-play" id="mixPlay" aria-label="Play arrangement" title="Play the whole arrangement (P)"></button>
-                        <span class="time-display"><strong id="mixTime">0:00.000</strong> / <span id="mixTotal">0:00.000</span></span>
+                        <button type="button" class="btn btn-sm" id="splitTimeline" title="Split the selected clip at the playhead (S)">
+                            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v18M5 12h4m6 0h4"/></svg>
+                            Split
+                        </button>
+                        <button type="button" class="btn btn-sm btn-icon" id="undoButton" aria-label="Undo" title="Undo (Ctrl+Z)">
+                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-icon" id="redoButton" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
+                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 000 11H13"/></svg>
+                        </button>
+                        <button type="button" class="btn btn-sm" id="snapButton" aria-pressed="true" title="Snap clips to edges and the playhead (hold Alt while dragging to override)">Snap</button>
+                        <span class="toolbar-divider" aria-hidden="true"></span>
+                        <button type="button" class="btn btn-sm btn-icon" id="tlZoomOut" aria-label="Zoom timeline out" title="Zoom out">
+                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M20 20l-3.5-3.5"/></svg>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-icon" id="tlZoomIn" aria-label="Zoom timeline in" title="Zoom in">
+                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6M20 20l-3.5-3.5"/></svg>
+                        </button>
+                        <button type="button" class="btn btn-sm" id="tlFit">Fit</button>
                         <button type="button" class="btn btn-sm" id="addFilesButton">
                             <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                             Add tracks
@@ -101,100 +117,122 @@
                     </div>
                 </div>
 
-                <div class="timeline" id="timeline" role="list" aria-label="Clips in playing order"></div>
-                <p class="wave-hint">Click a clip to edit it below. Drag clips to change the order. The arrangement plays and exports left to right.</p>
+                <div class="mt" id="multitrack">
+                    <div class="mt-heads" id="laneHeads"></div>
+                    <div class="mt-scroll" id="mtScroll">
+                        <div class="mt-content" id="mtContent"></div>
+                    </div>
+                </div>
+                <p class="wave-hint">Lanes play at the same time. Drag a clip sideways to move it in time, or up and down to another lane; drag its edges to trim. Click the ruler or an empty spot to move the playhead. Drop files onto a lane to add them there. <kbd>Ctrl</kbd> + scroll zooms.</p>
+
+                <!-- Hidden picker used by the Add tracks button. -->
+                <div class="dropzone" id="addZone" hidden>
+                    <input type="file" tabindex="-1">
+                </div>
 
                 <!-- Clip editor -->
                 <div class="clip-editor" id="clipEditor" aria-labelledby="clipEditorTitle">
-                    <div class="clip-head">
-                        <span class="item-index" id="clipIndex">1</span>
-                        <div class="clip-head-body">
-                            <h3 class="sr-only" id="clipEditorTitle">Selected clip</h3>
-                            <label class="sr-only" for="clipName">Clip name</label>
-                            <input class="input clip-name" id="clipName" autocomplete="off" spellcheck="false">
-                            <span class="item-sub" id="clipSource"></span>
+                    <p class="clip-empty" id="clipEmpty">Select a clip on the timeline to trim it, split it or add fades.</p>
+                    <div id="clipBody" hidden>
+                        <div class="clip-head">
+                            <span class="swatch-dot" id="clipSwatch" aria-hidden="true"></span>
+                            <div class="clip-head-body">
+                                <h3 class="sr-only" id="clipEditorTitle">Selected clip</h3>
+                                <label class="sr-only" for="clipName">Clip name</label>
+                                <input class="input clip-name" id="clipName" autocomplete="off" spellcheck="false">
+                                <span class="item-sub" id="clipSource"></span>
+                            </div>
+                            <div class="item-actions">
+                                <button type="button" class="btn btn-sm" id="duplicateClip" title="Duplicate right after this clip (D)">Duplicate</button>
+                                <button type="button" class="btn btn-sm btn-danger" id="deleteClip" title="Delete clip (Delete)">Delete</button>
+                            </div>
                         </div>
-                        <div class="item-actions">
-                            <button type="button" class="btn btn-sm" id="duplicateClip" title="Duplicate clip">Duplicate</button>
-                            <button type="button" class="btn btn-sm btn-danger" id="deleteClip" title="Delete clip (Delete)">Delete</button>
-                        </div>
-                    </div>
 
-                    <div id="waveform" aria-label="Source track waveform. The highlighted range is what this clip plays."></div>
-                    <p class="wave-hint">The bright part is what this clip plays. Drag its edges to trim, or drag across the waveform to pick a new range. To cut something out of the middle, split before and after it and delete the clip in between.</p>
+                        <div id="waveform" aria-label="Source track waveform. The highlighted range is what this clip plays."></div>
+                        <p class="wave-hint">This is the whole source file; the bright part is what the clip plays. Drag its edges to trim, or drag across the waveform to pick a different part. Click to move this preview's playhead.</p>
 
-                    <div class="transport">
-                        <div class="transport-group">
-                            <button type="button" class="btn btn-play" id="playButton" aria-label="Play"></button>
-                            <button type="button" class="btn btn-sm" id="playClip" title="Play this clip (C)">Play clip</button>
-                            <button type="button" class="btn btn-sm btn-icon" id="loopButton" aria-pressed="false" aria-label="Loop clip" title="Loop clip (L)">
-                                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 014-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 01-4 4H3"/></svg>
-                            </button>
-                            <span class="time-display"><strong id="timeNow">0:00.000</strong> / <span id="timeTotal">0:00.000</span></span>
+                        <div class="transport">
+                            <div class="transport-group">
+                                <button type="button" class="btn btn-play" id="playButton" aria-label="Play source"></button>
+                                <button type="button" class="btn btn-sm" id="playClip" title="Play this clip on its own (C)">Play clip</button>
+                                <button type="button" class="btn btn-sm btn-icon" id="loopButton" aria-pressed="false" aria-label="Loop clip" title="Loop clip (L)">
+                                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 014-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 01-4 4H3"/></svg>
+                                </button>
+                                <span class="time-display"><strong id="timeNow">0:00.000</strong> / <span id="timeTotal">0:00.000</span></span>
+                            </div>
+                            <div class="transport-group">
+                                <button type="button" class="btn btn-sm" id="splitHere" title="Split the clip at this preview's playhead">Split here</button>
+                                <button type="button" class="btn btn-sm btn-icon" id="zoomOut" aria-label="Zoom out" title="Zoom out">
+                                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M20 20l-3.5-3.5"/></svg>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-icon" id="zoomIn" aria-label="Zoom in" title="Zoom in">
+                                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6M20 20l-3.5-3.5"/></svg>
+                                </button>
+                                <button type="button" class="btn btn-sm" id="zoomClip">Zoom to clip</button>
+                                <button type="button" class="btn btn-sm" id="zoomFit">Fit</button>
+                            </div>
                         </div>
-                        <div class="transport-group">
-                            <button type="button" class="btn btn-sm" id="splitButton" title="Split clip at playhead (S)">
-                                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v18M5 12h4m6 0h4"/></svg>
-                                Split at playhead
-                            </button>
-                            <button type="button" class="btn btn-sm btn-icon" id="zoomOut" aria-label="Zoom out" title="Zoom out (−)">
-                                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M20 20l-3.5-3.5"/></svg>
-                            </button>
-                            <button type="button" class="btn btn-sm btn-icon" id="zoomIn" aria-label="Zoom in" title="Zoom in (+)">
-                                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6M20 20l-3.5-3.5"/></svg>
-                            </button>
-                            <button type="button" class="btn btn-sm" id="zoomClip">Zoom to clip</button>
-                            <button type="button" class="btn btn-sm" id="zoomFit">Fit</button>
-                        </div>
-                    </div>
 
-                    <div class="controls">
-                        <div class="control-card">
-                            <h3>Trim</h3>
-                            <div class="field-row">
+                        <div class="controls">
+                            <div class="control-card">
+                                <h3>Trim</h3>
+                                <div class="field-row">
+                                    <div class="field">
+                                        <label for="clipStart">Start in file</label>
+                                        <div class="input-with-btn">
+                                            <input class="input mono" id="clipStart" inputmode="decimal" autocomplete="off" spellcheck="false">
+                                            <button type="button" class="btn btn-sm btn-icon" id="setStart" aria-label="Set start to preview playhead" title="Set start to preview playhead (I)">
+                                                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16M19 12H9m4-4l-4 4 4 4"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="clipEnd">End in file</label>
+                                        <div class="input-with-btn">
+                                            <input class="input mono" id="clipEnd" inputmode="decimal" autocomplete="off" spellcheck="false">
+                                            <button type="button" class="btn btn-sm btn-icon" id="setEnd" aria-label="Set end to preview playhead" title="Set end to preview playhead (O)">
+                                                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4v16M5 12h10m-4-4l4 4-4 4"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="stat"><span>Clip length</span><strong id="clipLength">0:00.000</strong></div>
+                                <button type="button" class="link-button" id="resetTrim">Use the whole file</button>
+                            </div>
+
+                            <div class="control-card">
+                                <h3>Fades &amp; volume</h3>
+                                <div class="field-row">
+                                    <div class="field">
+                                        <label for="fadeIn">Fade in (s)</label>
+                                        <input class="input" id="fadeIn" type="number" min="0" step="0.1" value="0">
+                                    </div>
+                                    <div class="field">
+                                        <label for="fadeOut">Fade out (s)</label>
+                                        <input class="input" id="fadeOut" type="number" min="0" step="0.1" value="0">
+                                    </div>
+                                </div>
                                 <div class="field">
-                                    <label for="clipStart">Start</label>
+                                    <label for="clipGain">Clip volume (dB)</label>
+                                    <input class="input" id="clipGain" type="number" min="-60" max="24" step="0.5" value="0">
+                                </div>
+                            </div>
+
+                            <div class="control-card">
+                                <h3>Position</h3>
+                                <div class="field">
+                                    <label for="clipAt">Starts on the timeline at</label>
                                     <div class="input-with-btn">
-                                        <input class="input mono" id="clipStart" inputmode="decimal" autocomplete="off" spellcheck="false">
-                                        <button type="button" class="btn btn-sm btn-icon" id="setStart" aria-label="Set start to playhead" title="Set start to playhead (I)">
+                                        <input class="input mono" id="clipAt" inputmode="decimal" autocomplete="off" spellcheck="false">
+                                        <button type="button" class="btn btn-sm btn-icon" id="atPlayhead" aria-label="Move clip to the timeline playhead" title="Move clip to the timeline playhead">
                                             <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16M19 12H9m4-4l-4 4 4 4"/></svg>
                                         </button>
                                     </div>
                                 </div>
                                 <div class="field">
-                                    <label for="clipEnd">End</label>
-                                    <div class="input-with-btn">
-                                        <input class="input mono" id="clipEnd" inputmode="decimal" autocomplete="off" spellcheck="false">
-                                        <button type="button" class="btn btn-sm btn-icon" id="setEnd" aria-label="Set end to playhead" title="Set end to playhead (O)">
-                                            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4v16M5 12h10m-4-4l4 4-4 4"/></svg>
-                                        </button>
-                                    </div>
+                                    <label for="clipLane">Lane</label>
+                                    <select class="input" id="clipLane"></select>
                                 </div>
-                            </div>
-                            <div class="stat"><span>Clip length</span><strong id="clipLength">0:00.000</strong></div>
-                            <button type="button" class="link-button" id="resetTrim">Use the whole track</button>
-                        </div>
-
-                        <div class="control-card">
-                            <h3>Fades</h3>
-                            <div class="field-row">
-                                <div class="field">
-                                    <label for="fadeIn">Fade in (s)</label>
-                                    <input class="input" id="fadeIn" type="number" min="0" step="0.1" value="0">
-                                </div>
-                                <div class="field">
-                                    <label for="fadeOut">Fade out (s)</label>
-                                    <input class="input" id="fadeOut" type="number" min="0" step="0.1" value="0">
-                                </div>
-                            </div>
-                            <p class="field"><small>Applied to this clip only, before it's joined with the others.</small></p>
-                        </div>
-
-                        <div class="control-card">
-                            <h3>This clip</h3>
-                            <div class="stat"><span>Position</span><strong id="clipPosition">1 of 1</strong></div>
-                            <div class="stat"><span>Source length</span><strong id="sourceLength">0:00.000</strong></div>
-                            <div class="export-actions">
                                 <button type="button" class="btn btn-sm" id="downloadClip">
                                     <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>
                                     Download this clip
@@ -204,30 +242,18 @@
                     </div>
                 </div>
 
-                <!-- Clip list and export -->
                 <div class="controls two studio-bottom">
                     <div class="control-card">
-                        <div class="list-head">
-                            <h3>Clips</h3>
-                            <span class="chip" id="listSummary"></span>
+                        <h3>Line up clips</h3>
+                        <p class="field"><small>Places every clip on a lane one after another, in their current order, starting where the first one starts.</small></p>
+                        <div class="field">
+                            <label for="arrangeLane">Lane</label>
+                            <select class="input" id="arrangeLane"></select>
                         </div>
-                        <ol class="item-list" id="clipList" aria-label="Clips"></ol>
-                        <div class="dropzone compact" id="addZone" tabindex="0" role="button" aria-label="Add more tracks">
-                            <input type="file" tabindex="-1">
-                            <div class="drop-icon" aria-hidden="true">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                            </div>
-                            <p class="drop-title">Add tracks</p>
-                            <p class="drop-hint">or drop files here</p>
-                        </div>
-                    </div>
-
-                    <div class="control-card">
-                        <h3>Export</h3>
                         <div class="field">
                             <span class="label" id="transitionLabel">Between clips</span>
                             <div class="segmented" role="radiogroup" aria-labelledby="transitionLabel">
-                                <label><input type="radio" name="transition" value="none" checked><span>None</span></label>
+                                <label><input type="radio" name="transition" value="none" checked><span>Back to back</span></label>
                                 <label><input type="radio" name="transition" value="gap"><span>Gap</span></label>
                                 <label><input type="radio" name="transition" value="crossfade"><span>Crossfade</span></label>
                             </div>
@@ -236,6 +262,14 @@
                             <label for="transitionSeconds" id="transitionSecondsLabel">Seconds</label>
                             <input class="input" id="transitionSeconds" type="number" min="0" max="30" step="0.1" value="1">
                         </div>
+                        <div class="export-actions">
+                            <button type="button" class="btn btn-sm" id="lineUp">Line up clips</button>
+                            <button type="button" class="btn btn-sm" id="mergeLanes">Move every clip onto this lane, end to end</button>
+                        </div>
+                    </div>
+
+                    <div class="control-card">
+                        <h3>Export</h3>
                         <div class="field-row">
                             <div class="field">
                                 <label for="sampleRate">Sample rate</label>
@@ -249,7 +283,6 @@
                             <div class="field">
                                 <label for="channels">Channels</label>
                                 <select class="input" id="channels">
-                                    <option value="auto">Match tracks</option>
                                     <option value="2">Stereo</option>
                                     <option value="1">Mono</option>
                                 </select>
@@ -269,26 +302,29 @@
                                 </select>
                             </div>
                         </div>
+                        <label class="check"><input type="checkbox" id="preventClip" checked> Turn the mix down if it would clip</label>
                         <label class="check"><input type="checkbox" id="normalize"> Normalize peak to −1 dB</label>
-                        <div class="stat"><span>Joined length</span><strong id="outLength">0:00.000</strong></div>
+                        <div class="stat"><span>Mix length</span><strong id="outLength">0:00.000</strong></div>
                         <div class="export-actions">
-                            <button type="button" class="btn btn-primary" id="exportJoined">
+                            <button type="button" class="btn btn-primary" id="exportMix">
                                 <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>
-                                Export joined WAV
+                                Export mix (WAV)
                             </button>
-                            <button type="button" class="btn btn-sm" id="exportClips">Export each clip separately (ZIP)</button>
+                            <button type="button" class="btn btn-sm" id="exportStems">Export each lane (ZIP of stems)</button>
+                            <button type="button" class="btn btn-sm" id="exportClips">Export each clip (ZIP)</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="shortcuts" aria-label="Keyboard shortcuts">
-                    <span><kbd>Space</kbd> Play / pause source</span>
-                    <span><kbd>C</kbd> Play clip</span>
-                    <span><kbd>P</kbd> Play arrangement</span>
+                    <span><kbd>Space</kbd> Play / pause</span>
+                    <span><kbd>Home</kbd> Back to start</span>
                     <span><kbd>S</kbd> Split at playhead</span>
-                    <span><kbd>I</kbd> <kbd>O</kbd> Clip start / end</span>
-                    <span><kbd>[</kbd> <kbd>]</kbd> Previous / next clip</span>
+                    <span><kbd>D</kbd> Duplicate</span>
                     <span><kbd>Delete</kbd> Delete clip</span>
+                    <span><kbd>[</kbd> <kbd>]</kbd> Previous / next clip</span>
+                    <span><kbd>C</kbd> Play clip alone</span>
+                    <span><kbd>Ctrl</kbd> <kbd>Z</kbd> Undo</span>
                 </div>
             </section>
         </div>
@@ -307,6 +343,7 @@
     <script src="js/player.js"></script>
     <script src="js/waveform.js"></script>
     <script src="js/ui.js"></script>
+    <script src="js/mixer.js"></script>
     <script src="js/studio.js"></script>
     <script src="js/sw-register.js"></script>
 </body>
