@@ -4,7 +4,7 @@
 
 AudioLoft is a static site: every edit happens in the page, using the browser's
 own Web Audio decoder and on-device encoders (WAV, MP3, AAC). There is no
-backend and nothing is loaded from other sites, so it can be hosted on GitHub
+backend and your audio never leaves the device, so it can be hosted on GitHub
 Pages and keeps working offline once it has been opened.
 
 ---
@@ -70,12 +70,17 @@ in and a WAV out are sample-identical apart from the edit itself.
 
 ## Privacy
 
-- **No uploads.** There is no server-side code. Open DevTools → Network while
-  editing: nothing is sent anywhere.
-- **Nothing loaded from elsewhere.** No CDNs, fonts or analytics. The one
-  third-party library, the lamejs MP3 encoder, is vendored in `lib/` and
-  served from this site. Every page declares `script-src 'self'` in its
-  Content-Security-Policy.
+- **Your audio never leaves the device.** There is no server-side code. Files
+  are decoded, edited and encoded inside the tab; open DevTools → Network
+  while editing and no audio is sent anywhere.
+- **One third-party request: a GoatCounter pageview count.** Each page loads
+  [GoatCounter](https://www.goatcounter.com/)'s `count.js`, which records a
+  cookie-free pageview (path, referrer, screen size) and reads back the
+  "N visitors" number in the footer. It never sees your files. Adblockers
+  block it, and the site works the same without it. Nothing else is loaded
+  from elsewhere: no CDNs or fonts, and the lamejs MP3 encoder is vendored in
+  `lib/`. Each page's Content-Security-Policy allows only this site plus
+  `gc.zgo.at` and `yvj.goatcounter.com`.
 - **Offline.** A service worker caches the site after the first visit, and the
   web app manifest makes it installable.
 
@@ -109,10 +114,12 @@ audioloft/
 │   ├── studio.js         # Multitrack session: lanes, clips, timeline, undo
 │   ├── mixer.js          # Web Audio mix graph for live playback and export
 │   ├── home.js           # Landing-page hero animation
+│   ├── visitor-count.js  # "N visitors" footer note (GoatCounter read-back)
 │   └── sw-register.js
 ├── sw.js                 # Offline cache (network first)
 ├── manifest.webmanifest
 ├── icons/                # icon.svg (favicon) and PNG app icons
+├── scripts/check-sw.mjs  # `node scripts/check-sw.mjs`: worker never caches analytics
 └── lib/lame.min.js       # lamejs 1.2.1 MP3 encoder (LGPL-3.0), vendored
 ```
 

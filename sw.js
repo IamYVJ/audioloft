@@ -2,11 +2,13 @@
 //
 // Network first, cache as fallback: a GitHub Pages deploy reaches people on
 // their next load, and the app still opens with no connection. Every
-// successful same-origin GET refreshes the cache.
+// successful same-origin GET refreshes the cache. Cross-origin requests
+// (the GoatCounter beacon and visitor count) are never touched: a beacon
+// answered from cache records nothing.
 //
 // Bump CACHE_VERSION when the precache list changes.
 
-const CACHE_VERSION = 'audioloft-v4';
+const CACHE_VERSION = 'audioloft-v5';
 
 const PRECACHE_URLS = [
     './',
@@ -31,6 +33,7 @@ const PRECACHE_URLS = [
     'js/studio.js',
     'js/home.js',
     'js/sw-register.js',
+    'js/visitor-count.js',
     'icons/icon.svg',
     'icons/icon-192.png',
     'icons/icon-512.png',

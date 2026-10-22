@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://gc.zgo.at; style-src 'self'; img-src 'self' data: blob: https://yvj.goatcounter.com; media-src 'self' blob:; connect-src 'self' https://yvj.goatcounter.com; font-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
     <title>AudioLoft — Trim, Split &amp; Join Audio in Your Browser</title>
     <meta name="description" content="Free, private audio tools: trim, split and join MP3, WAV, FLAC, OGG and more right in your browser. No uploads, no sign-up, works offline.">
     <meta name="theme-color" content="#0a0908">
@@ -245,10 +245,20 @@
                 </a>
                 <p class="footer-info">&copy; 2026 AudioLoft · Your audio never leaves your device.</p>
             </div>
+            <p class="visitor-counter" hidden>
+                <span id="visitor-count" class="visitor-count">—</span> visitors
+            </p>
         </div>
     </footer>
 
     <script src="js/home.js"></script>
     <script src="js/sw-register.js"></script>
+    <script src="js/visitor-count.js" defer></script>
+    <!-- GoatCounter pageview beacon. One site shared across all projects on purpose:
+         counts are per-path, so each project is separated by its own pathname. -->
+    <script
+        data-goatcounter="https://yvj.goatcounter.com/count"
+        async
+        src="https://gc.zgo.at/count.js"></script>
 </body>
 </html>
