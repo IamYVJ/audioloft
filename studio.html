@@ -59,7 +59,7 @@
             <div class="tool-intro">
                 <div>
                     <h1>Audio <span class="highlight">studio</span></h1>
-                    <p>A multitrack editor in your browser. Layer tracks on lanes that play together, line clips up one after another, trim and split anything, then export the mix, each lane, or each clip.</p>
+                    <p>A multitrack editor in your browser. Layer tracks on lanes that play together, line clips up one after another, trim and split anything, then export the mix, each lane, or each clip. Sessions save as you work, in this browser.</p>
                 </div>
                 <span class="privacy-pill">
                     <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 118 0v3"/></svg>
@@ -79,9 +79,24 @@
                         <button type="button" class="link-button" id="demoButton">No files handy? Try a demo session</button>
                     </div>
                 </div>
+                <div class="saved-sessions" id="savedSessions" hidden>
+                    <div class="list-head">
+                        <h2 class="saved-title" id="savedTitle">Saved sessions</h2>
+                        <span class="saved-note">Kept in this browser only</span>
+                    </div>
+                    <ul class="item-list" id="savedList" aria-labelledby="savedTitle"></ul>
+                </div>
             </section>
 
             <section class="panel editor" id="studioStage" hidden aria-label="Studio">
+                <div class="session-bar">
+                    <input class="session-name" id="sessionName" aria-label="Session name" placeholder="Untitled session" autocomplete="off" spellcheck="false" maxlength="120">
+                    <span class="save-status" id="saveStatus" role="status" aria-live="polite"></span>
+                    <button type="button" class="btn btn-sm btn-ghost" id="closeSession" title="Save this session and go back to your saved sessions">
+                        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1.5"/><rect x="3" y="10" width="18" height="4" rx="1.5"/><rect x="3" y="16" width="18" height="4" rx="1.5"/></svg>
+                        All sessions
+                    </button>
+                </div>
                 <div class="studio-toolbar">
                     <div class="transport-group">
                         <button type="button" class="btn btn-primary btn-play" id="mixPlay" aria-label="Play" title="Play / pause (Space)"></button>
@@ -344,6 +359,7 @@
     <script src="js/waveform.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/mixer.js"></script>
+    <script src="js/session-store.js"></script>
     <script src="js/studio.js"></script>
     <script src="js/sw-register.js"></script>
     <script src="js/visitor-count.js" defer></script>

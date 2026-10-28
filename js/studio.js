@@ -16,6 +16,9 @@
 // Every edit goes through the undo history: discrete actions call
 // checkpoint() first; continuous ones (drags, sliders, typing) bracket the
 // gesture with beginEdit() / endEdit().
+//
+// The session autosaves to IndexedDB (js/session-store.js) and can be
+// reopened from the list under the drop zone.
 
 (function () {
     'use strict';
@@ -43,7 +46,18 @@
         history: [],
         future: [],
         baseline: null,
-        drag: null
+        drag: null,
+        // Saved sessions
+        sessionId: null,
+        sessionName: '',
+        createdAt: 0,
+        savedSources: new Set(),
+        savedKey: null,
+        saving: null,
+        saveAgain: false,
+        saveWarned: false,
+        retryAt: 0,
+        storage: true
     };
 
     const mixer = new MX.LiveMixer(() => session);
@@ -88,7 +102,11 @@
         format: $('#format'),
         preventClip: $('#preventClip'),
         normalize: $('#normalize'),
-        outLength: $('#outLength')
+        outLength: $('#outLength'),
+        sessionName: $('#sessionName'),
+        saveStatus: $('#saveStatus'),
+        savedSessions: $('#savedSessions'),
+        savedList: $('#savedList')
     };
 
     // ---------- Model helpers ----------
@@ -123,8 +141,10 @@
         return lane;
     }
 
-    function addSource(name, clip, size) {
-        const source = { id: state.nextId++, name, size, clip };
+    // `origin` is how the session store keeps the audio: { blob } for a file,
+    // { recipe } for generated demo audio.
+    function addSource(name, clip, size, origin) {
+        const source = { id: state.nextId++, name, size, clip, origin };
         session.sources.set(source.id, source);
         return source;
     }
@@ -234,7 +254,7 @@
                 const file = files[i];
                 await setLabel(files.length > 1 ? `Decoding ${i + 1} of ${files.length}…` : `Decoding “${file.name}”…`);
                 try {
-                    sources.push(addSource(file.name, await AL.decodeFile(file), file.size));
+                    sources.push(addSource(file.name, await AL.decodeFile(file), file.size, { blob: file }));
                 } catch (error) {
                     ui.toast(error.message, 'error');
                 }
@@ -267,9 +287,10 @@
 
     function addDemo() {
         checkpoint();
-        const melody = addSource('Melody.wav', AL.createDemoClip(0), 0);
-        const bass = addSource('Bass.wav', synthBass(melody.clip.duration), 0);
-        const shaker = addSource('Shaker.wav', synthShaker(melody.clip.duration), 0);
+        const melody = addSource('Melody.wav', synthesize({ kind: 'melody' }), 0, { recipe: { kind: 'melody' } });
+        const duration = melody.clip.duration;
+        const bass = addSource('Bass.wav', synthesize({ kind: 'bass', duration }), 0, { recipe: { kind: 'bass', duration } });
+        const shaker = addSource('Shaker.wav', synthesize({ kind: 'shaker', duration }), 0, { recipe: { kind: 'shaker', duration } });
         const l1 = newLane('Melody');
         const l2 = newLane('Bass');
         const l3 = newLane('Shaker');
@@ -282,6 +303,14 @@
         els.fileName.value = 'demo-mix';
         renderAll();
         fitTimeline();
+    }
+
+    // Demo audio is rebuilt from a recipe, so saved demo sessions store a few
+    // bytes instead of the samples.
+    function synthesize(recipe) {
+        if (recipe.kind === 'bass') return synthBass(recipe.duration);
+        if (recipe.kind === 'shaker') return synthShaker(recipe.duration);
+        return AL.createDemoClip(0);
     }
 
     // Demo layers in the same key as the melody (C), so they sit together.
@@ -381,6 +410,7 @@
         if (empty) {
             mixer.stop();
             preview.stop();
+            renderSavedList();
         }
         renderTimeline();
         renderLaneOptions();
@@ -1280,6 +1310,295 @@
         }
     }
 
+    // ---------- Saved sessions ----------
+    //
+    // A few moments after any change the arrangement is written to
+    // IndexedDB. Each source's audio is written once (the original file, or
+    // the demo recipe); after that a save only rewrites the small record of
+    // lanes and clips. Undo history isn't saved.
+
+    const store = AL.sessionStore;
+    const SESSION_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h9M8 12h12M4 18h6M14 18h3"/></svg>';
+    const AUTOSAVE_MS = 1500;
+    const RETRY_MS = 20000;
+
+    function arrangement() {
+        return {
+            name: state.sessionName,
+            lanes: session.lanes,
+            clips: session.clips,
+            fileName: els.fileName.value,
+            pps: state.pps
+        };
+    }
+
+    const usedSourceIds = () => [...new Set(session.clips.map((c) => c.sourceId))];
+
+    function defaultSessionName() {
+        const first = orderedClips()[0];
+        if (!first) return 'Untitled session';
+        const source = sourceOf(first);
+        return source.origin && source.origin.recipe ? 'Demo session' : AL.baseName(source.name);
+    }
+
+    function setSaveStatus(kind) {
+        const text = { saving: 'Saving…', saved: 'Saved in this browser', failed: 'Not saved', off: 'Saving unavailable' };
+        els.saveStatus.textContent = text[kind] || '';
+        els.saveStatus.dataset.state = kind || '';
+    }
+
+    // Resolves once everything up to now is stored (or saving has failed).
+    function saveNow() {
+        if (!state.storage) return Promise.resolve();
+        if (state.saving) {
+            state.saveAgain = true;
+            return state.saving;
+        }
+        const key = JSON.stringify(arrangement());
+        if (key === state.savedKey) return Promise.resolve();
+        state.saving = writeSession(key)
+            .catch(onSaveError)
+            .finally(() => {
+                state.saving = null;
+                if (state.saveAgain) {
+                    state.saveAgain = false;
+                    saveNow();
+                }
+            });
+        return state.saving;
+    }
+
+    async function writeSession(key) {
+        // An emptied session is removed rather than listed with nothing in
+        // it. Undo brings the lanes back, and the next save writes it again.
+        if (!session.lanes.length) {
+            if (state.sessionId && state.savedSources.size) {
+                await store.remove(state.sessionId);
+                renderSavedList();
+            }
+            state.savedSources.clear();
+            state.savedKey = key;
+            setSaveStatus('');
+            return;
+        }
+        if (!state.sessionId) {
+            state.sessionId = store.newId();
+            state.createdAt = Date.now();
+        }
+        if (!state.sessionName) {
+            state.sessionName = defaultSessionName();
+            els.sessionName.value = state.sessionName;
+        }
+        const id = state.sessionId;
+        setSaveStatus('saving');
+
+        const used = usedSourceIds();
+        for (const sourceId of used) {
+            if (state.savedSources.has(sourceId)) continue;
+            const source = session.sources.get(sourceId);
+            await store.saveSource(id, sourceId, Object.assign({ name: source.name, size: source.size }, source.origin));
+            state.savedSources.add(sourceId);
+        }
+        await store.saveRecord(Object.assign({
+            id,
+            createdAt: state.createdAt,
+            updatedAt: Date.now(),
+            nextId: state.nextId,
+            colorIndex: state.colorIndex,
+            duration: MX.sessionLength(session),
+            bytes: used.reduce((sum, sourceId) => sum + (session.sources.get(sourceId).size || 0), 0)
+        }, arrangement()));
+        // Audio no clip uses any more (deleted clips) is let go.
+        if (used.length < state.savedSources.size) {
+            await store.pruneSources(id, used);
+            state.savedSources = new Set(used);
+        }
+        state.savedKey = key;
+        state.saveWarned = false;
+        setSaveStatus('saved');
+    }
+
+    function onSaveError(error) {
+        setSaveStatus('failed');
+        state.retryAt = Date.now() + RETRY_MS;
+        if (state.saveWarned) return;
+        state.saveWarned = true;
+        ui.toast(store.isQuotaError(error)
+            ? 'Browser storage is full, so this session isn’t being saved. Delete old sessions to make room.'
+            : `This session couldn’t be saved. ${error && error.message ? error.message : ''}`, 'error');
+    }
+
+    function autosave() {
+        if (state.drag || Date.now() < state.retryAt) return;
+        saveNow();
+    }
+
+    function resetSession() {
+        mixer.stop();
+        preview.stop();
+        mixer.seek(0);
+        session.sources = new Map();
+        session.lanes = [];
+        session.clips = [];
+        Object.assign(state, {
+            selectedId: null,
+            nextId: 1,
+            colorIndex: 0,
+            history: [],
+            future: [],
+            baseline: null,
+            sessionId: null,
+            sessionName: '',
+            createdAt: 0,
+            savedSources: new Set(),
+            savedKey: null,
+            saveWarned: false,
+            retryAt: 0
+        });
+        els.sessionName.value = '';
+        els.fileName.value = 'studio-mix';
+        setSaveStatus(state.storage ? '' : 'off');
+    }
+
+    async function closeSession() {
+        if (!state.storage && session.clips.length &&
+            !window.confirm('This browser can’t save sessions, so closing loses this one. Close anyway?')) return;
+        await saveNow();
+        if (state.storage && els.saveStatus.dataset.state === 'failed' &&
+            !window.confirm('The latest changes couldn’t be saved. Close anyway?')) return;
+        resetSession();
+        renderAll();
+        renderSavedList();
+        els.dropStage.scrollIntoView({ block: 'nearest' });
+    }
+
+    async function openSession(id) {
+        let loaded = null;
+        const missing = [];
+        try {
+            await ui.withBusy('Opening session…', async (setLabel) => {
+                const { record, sources } = await store.load(id);
+                const rebuilt = new Map();
+                for (let i = 0; i < sources.length; i++) {
+                    const saved = sources[i];
+                    await setLabel(sources.length > 1 ? `Decoding ${i + 1} of ${sources.length}…` : `Decoding “${saved.name}”…`);
+                    try {
+                        const clip = saved.recipe
+                            ? synthesize(saved.recipe)
+                            : await AL.decodeFile(new File([saved.blob], saved.name, { type: saved.blob.type }));
+                        const origin = saved.recipe ? { recipe: saved.recipe } : { blob: saved.blob };
+                        rebuilt.set(saved.id, { id: saved.id, name: saved.name, size: saved.size, clip, origin });
+                    } catch (error) {
+                        missing.push(saved.name);
+                    }
+                }
+                loaded = { record, rebuilt };
+            });
+        } catch (error) {
+            ui.toast(error.message || 'That session couldn’t be opened.', 'error');
+            renderSavedList();
+            return;
+        }
+
+        const { record, rebuilt } = loaded;
+        resetSession();
+        session.sources = rebuilt;
+        session.lanes = record.lanes;
+        session.clips = record.clips.filter((clip) => {
+            const source = rebuilt.get(clip.sourceId);
+            if (!source) return false;
+            // A browser can decode a file a few samples shorter than the
+            // one that saved the session did.
+            clip.end = Math.min(clip.end, source.clip.duration);
+            return clip.end - clip.start >= MIN_CLIP / 2;
+        });
+        const first = orderedClips()[0];
+        Object.assign(state, {
+            nextId: record.nextId,
+            colorIndex: record.colorIndex,
+            pps: record.pps || state.pps,
+            sessionId: record.id,
+            sessionName: record.name || '',
+            createdAt: record.createdAt,
+            savedSources: new Set(rebuilt.keys()),
+            selectedId: first ? first.id : null
+        });
+        els.sessionName.value = state.sessionName;
+        els.fileName.value = record.fileName || 'studio-mix';
+        state.savedKey = JSON.stringify(arrangement());
+        setSaveStatus('saved');
+        renderAll();
+        els.scroll.scrollLeft = 0;
+        if (missing.length) {
+            ui.toast(`Couldn’t decode ${missing.join(', ')} in this browser, so ${missing.length === 1 ? 'its clips are' : 'their clips are'} left out.`, 'error');
+        }
+        ui.announce(`Opened ${state.sessionName || 'session'}.`);
+    }
+
+    async function deleteSaved(record) {
+        if (!window.confirm(`Delete “${record.name || 'Untitled session'}” from this browser? This can’t be undone.`)) return;
+        try {
+            await store.remove(record.id);
+            ui.toast('Session deleted');
+        } catch (error) {
+            ui.toast('That session couldn’t be deleted.', 'error');
+        }
+        renderSavedList();
+    }
+
+    function describeSaved(record) {
+        const lanes = record.lanes.length;
+        const when = new Date(record.updatedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+        return [
+            `${lanes} lane${lanes === 1 ? '' : 's'}`,
+            AL.formatTime(record.duration, 0),
+            record.bytes ? AL.formatBytes(record.bytes) : null,
+            when
+        ].filter(Boolean).join(' · ');
+    }
+
+    async function renderSavedList() {
+        if (!state.storage) return;
+        let records;
+        try {
+            records = await store.list();
+        } catch (error) {
+            state.storage = false;
+            els.savedSessions.hidden = true;
+            setSaveStatus('off');
+            return;
+        }
+        els.savedList.innerHTML = '';
+        records.forEach((record) => {
+            const name = record.name || 'Untitled session';
+            els.savedList.appendChild(ui.el('li', { class: 'item item-session' }, [
+                ui.el('span', { class: 'session-badge', 'aria-hidden': 'true', html: SESSION_ICON }),
+                ui.el('div', { class: 'item-body' }, [
+                    ui.el('span', { class: 'item-title', text: name, title: name }),
+                    ui.el('span', { class: 'item-sub', text: describeSaved(record) })
+                ]),
+                ui.el('div', { class: 'item-actions' }, [
+                    ui.el('button', {
+                        type: 'button',
+                        class: 'btn btn-sm btn-primary',
+                        text: 'Open',
+                        'aria-label': `Open ${name}`,
+                        onclick: () => openSession(record.id)
+                    }),
+                    ui.el('button', {
+                        type: 'button',
+                        class: 'btn btn-sm btn-icon',
+                        html: ui.ICONS.remove,
+                        title: 'Delete',
+                        'aria-label': `Delete ${name}`,
+                        onclick: () => deleteSaved(record)
+                    })
+                ])
+            ]));
+        });
+        els.savedSessions.hidden = records.length === 0;
+    }
+
     // ---------- Wiring ----------
 
     const addDz = ui.dropzone($('#addZone'), { multiple: true, onFiles: (files) => addFiles(files) });
@@ -1421,6 +1740,21 @@
         ui.toast(`All ${list.length} clips are now on one lane, end to end`, 'success');
     });
     AL.formatPicker(els.format);
+
+    // Saved sessions
+    els.sessionName.addEventListener('input', () => {
+        state.sessionName = els.sessionName.value.trim();
+    });
+    els.sessionName.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') els.sessionName.blur();
+    });
+    $('#closeSession').addEventListener('click', closeSession);
+    setInterval(autosave, AUTOSAVE_MS);
+    // Catch the last edit when the tab is hidden or closed.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') saveNow();
+    });
+    window.addEventListener('pagehide', () => saveNow());
     $('#exportMix').addEventListener('click', exportMix);
     $('#exportStems').addEventListener('click', exportStems);
     $('#exportClips').addEventListener('click', exportClips);
@@ -1441,9 +1775,16 @@
 
     document.addEventListener('keydown', (e) => {
         if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+        const key = e.key.toLowerCase();
+        // Sessions save on their own; Ctrl+S just saves right away, even
+        // from a text field.
+        if (key === 's' && !e.shiftKey) {
+            e.preventDefault();
+            if (session.lanes.length) saveNow().then(() => ui.announce('Saved'));
+            return;
+        }
         const tag = e.target.tagName;
         if ((tag === 'INPUT' && e.target.type !== 'range' && e.target.type !== 'checkbox') || tag === 'TEXTAREA') return;
-        const key = e.key.toLowerCase();
         if (key === 'z' && !e.shiftKey) {
             e.preventDefault();
             undo();
@@ -1453,5 +1794,6 @@
         }
     });
 
+    // With nothing loaded this also lists the saved sessions.
     renderAll();
 })();

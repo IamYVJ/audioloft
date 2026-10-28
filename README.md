@@ -13,7 +13,7 @@ Pages and keeps working offline once it has been opened.
 
 | Tool | What it does |
 | --- | --- |
-| **Studio** | A multitrack editor. Every file gets its own lane and lanes play at the same time, so tracks can be layered (voice over music) as well as placed one after another. Drag clips in time and between lanes, trim them by their edges, split at the playhead, duplicate, fade and set clip volume. Each lane has volume, pan, mute and solo. Snapping, undo / redo, and a "line up" helper that places a lane's clips end to end with a gap or crossfade. Export the mix, one stem per lane (ZIP), or every clip (ZIP). |
+| **Studio** | A multitrack editor. Every file gets its own lane and lanes play at the same time, so tracks can be layered (voice over music) as well as placed one after another. Drag clips in time and between lanes, trim them by their edges, split at the playhead, duplicate, fade and set clip volume. Each lane has volume, pan, mute and solo. Snapping, undo / redo, and a "line up" helper that places a lane's clips end to end with a gap or crossfade. Export the mix, one stem per lane (ZIP), or every clip (ZIP). Sessions save themselves in the browser and can be reopened later. |
 | **Trim** | Select a range on the waveform (drag, type exact times, or set from the playhead) and either keep it or cut it out. Fade in / out, normalize to −1 dB, loop the selection, preview the result before saving. |
 | **Split** | Place split points by hand, every N seconds, into N equal parts, or in the middle of silent gaps. Drag points to adjust, name each part, play or download parts one by one, or download them all as a ZIP. Optional silence trimming and short fades at each cut. |
 | **Join** | Add any number of files in any supported format, reorder by drag and drop or the ↑ / ↓ buttons, preview each one. Join with no gap, a silent gap, or an equal-power crossfade. Mixed sample rates and channel layouts are matched automatically. |
@@ -61,6 +61,14 @@ in and a WAV out are sample-identical apart from the edit itself.
   keys (Shift for bigger steps). Drop files on a lane to add them there.
   Live playback and export use the same mixing graph, so the WAV matches what
   you heard.
+- **Studio sessions** save on their own a moment after each change (`Ctrl+S`
+  saves at once). Rename one with the name above the toolbar; **All sessions**
+  closes it and lists everything saved, newest first, to open or delete.
+  Sessions live in this browser's IndexedDB: the original files are stored as
+  they were dropped and decoded again on open, and the demo is rebuilt from a
+  recipe. Undo history isn't kept between visits. Clearing site data, or the
+  browser running short of space, removes them, so export anything you need
+  to keep.
 - **Split:** double-click to add a split point, drag one to move it,
   double-click it to remove it. `M` splits at the playhead.
 - `Space` plays / pauses. With the waveform focused, `←` / `→` nudge the
@@ -71,7 +79,8 @@ in and a WAV out are sample-identical apart from the edit itself.
 ## Privacy
 
 - **Your audio never leaves the device.** There is no server-side code. Files
-  are decoded, edited and encoded inside the tab; open DevTools → Network
+  are decoded, edited and encoded inside the tab, and saved Studio sessions are
+  kept in the browser's own storage; open DevTools → Network
   while editing and no audio is sent anywhere.
 - **One third-party request: a GoatCounter pageview count.** Each page loads
   [GoatCounter](https://www.goatcounter.com/)'s `count.js`, which records a
@@ -113,6 +122,7 @@ audioloft/
 │   ├── trim.js / split.js / join.js
 │   ├── studio.js         # Multitrack session: lanes, clips, timeline, undo
 │   ├── mixer.js          # Web Audio mix graph for live playback and export
+│   ├── session-store.js  # Saved Studio sessions (IndexedDB)
 │   ├── home.js           # Landing-page hero animation
 │   ├── visitor-count.js  # "N visitors" footer note (GoatCounter read-back)
 │   └── sw-register.js
