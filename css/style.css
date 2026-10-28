@@ -1155,6 +1155,10 @@ footer {
     grid-template-columns: 1.4fr 1fr;
 }
 
+.controls.four {
+    grid-template-columns: 1fr 1fr;
+}
+
 .control-card {
     padding: 20px;
     border: 1px solid var(--border-subtle);
@@ -1628,7 +1632,8 @@ select.input {
     }
 
     .controls,
-    .controls.two {
+    .controls.two,
+    .controls.four {
         grid-template-columns: 1fr 1fr;
     }
 
@@ -1695,7 +1700,8 @@ select.input {
     .tools-grid,
     .about-grid,
     .controls,
-    .controls.two {
+    .controls.two,
+    .controls.four {
         grid-template-columns: 1fr;
     }
 
@@ -1913,7 +1919,7 @@ select.input {
 }
 
 .mt {
-    --head: 196px;
+    --head: 224px;
     --ruler: 30px;
     --lane: 82px;
     display: grid;
@@ -2298,6 +2304,146 @@ select.input {
     margin-top: 18px;
 }
 
+/* ---------- Lane effects ---------- */
+
+.lane-toggle.fx {
+    width: 30px;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+}
+
+.lane-toggle.fx.has-fx {
+    border-color: rgba(255, 181, 71, 0.55);
+    color: var(--accent-primary);
+}
+
+.lane-toggle.fx[aria-pressed="true"] {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: #1d1206;
+}
+
+.lane-fx {
+    margin-top: 18px;
+    padding: 18px;
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--swatch, var(--accent-primary));
+    border-radius: var(--radius-lg);
+    background: rgba(13, 12, 11, 0.55);
+}
+
+.lane-fx-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.lane-fx-head .swatch-dot {
+    height: 22px;
+    width: 10px;
+}
+
+.lane-fx-title {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fx-controls {
+    grid-template-columns: 1fr 1fr;
+    margin-top: 14px;
+}
+
+.fx-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.fx-card-head h3 {
+    margin: 0;
+}
+
+.fx-switch {
+    margin: 0;
+}
+
+.fx-card.is-off .fx-sliders {
+    opacity: 0.55;
+}
+
+.fx-sliders {
+    display: grid;
+    gap: 10px;
+}
+
+.fx-slider {
+    display: grid;
+    grid-template-columns: 7.5em minmax(0, 1fr) 5.5em;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.fx-slider input {
+    width: 100%;
+    margin: 0;
+    accent-color: var(--accent-primary);
+    cursor: pointer;
+}
+
+.fx-slider output,
+.gr-meter output {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+    text-align: right;
+}
+
+.gr-meter {
+    display: grid;
+    grid-template-columns: 7.5em minmax(0, 1fr) 5.5em;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.gr-track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg-tertiary);
+    overflow: hidden;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.gr-fill {
+    width: 0;
+    height: 100%;
+    background: var(--accent-secondary);
+}
+
+/* Speed / pitch tag on a timeline clip */
+.mt-clip-tag {
+    margin-left: 6px;
+    padding: 0 4px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.45);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+}
+
 @media (max-width: 720px) {
     .mt {
         --head: 128px;
@@ -2319,7 +2465,31 @@ select.input {
     }
 
     .lane-toggle {
-        width: 22px;
+        width: 20px;
+    }
+
+    .lane-toggle.fx {
+        width: 24px;
+    }
+
+    .fx-controls {
+        grid-template-columns: 1fr;
+    }
+
+    /* Label and value on one line, the slider full width under them. */
+    .fx-slider {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 2px 8px;
+    }
+
+    .fx-slider input {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    .gr-meter {
+        grid-template-columns: auto minmax(0, 1fr) 5em;
+        gap: 8px;
     }
 
     .toolbar-divider {

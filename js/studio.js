@@ -5,13 +5,16 @@
 // A small multitrack editor. The session is:
 //
 //   sources – decoded files, never modified
-//   lanes   – tracks that play at the same time (volume, pan, mute, solo)
+//   lanes   – tracks that play at the same time (volume, pan, mute, solo,
+//             and an EQ and compressor in `fx`)
 //   clips   – a range [start, end) of one source, placed on a lane at
-//             timeline time `at`, with fades and a volume
+//             timeline time `at`, with fades, a volume, a speed and a pitch
 //
 // Trimming changes a clip's range, splitting turns one clip into two that
 // share a source, and putting clips one after another on a lane joins them.
-// Lanes are mixed by js/mixer.js, live and for export.
+// Lanes are mixed by js/mixer.js, live and for export. A clip with its speed
+// or pitch changed plays from a processed copy of its source
+// (js/stretch.js), made when the setting changes.
 //
 // Every edit goes through the undo history: discrete actions call
 // checkpoint() first; continuous ones (drags, sliders, typing) bracket the
@@ -47,6 +50,7 @@
         future: [],
         baseline: null,
         drag: null,
+        fxLaneId: null,
         // Saved sessions
         sessionId: null,
         sessionName: '',
@@ -62,6 +66,9 @@
 
     const mixer = new MX.LiveMixer(() => session);
     const preview = new AL.Player();
+    // "Play clip" on a clip with its speed or pitch changed plays the
+    // processed copy through this one.
+    const clipPlayer = new AL.Player();
 
     const els = {
         dropStage: $('#dropStage'),
@@ -90,6 +97,8 @@
         fadeIn: $('#fadeIn'),
         fadeOut: $('#fadeOut'),
         clipGain: $('#clipGain'),
+        clipSpeed: $('#clipSpeed'),
+        clipPitch: $('#clipPitch'),
         clipAt: $('#clipAt'),
         clipLane: $('#clipLane'),
         arrangeLane: $('#arrangeLane'),
@@ -106,7 +115,18 @@
         sessionName: $('#sessionName'),
         saveStatus: $('#saveStatus'),
         savedSessions: $('#savedSessions'),
-        savedList: $('#savedList')
+        savedList: $('#savedList'),
+        laneFx: $('#laneFx'),
+        fxSwatch: $('#fxSwatch'),
+        fxLaneName: $('#fxLaneName'),
+        eqOn: $('#eqOn'),
+        compOn: $('#compOn'),
+        eqCard: $('#eqCard'),
+        compCard: $('#compCard'),
+        eqSliders: $('#eqSliders'),
+        compSliders: $('#compSliders'),
+        grFill: $('#grFill'),
+        grValue: $('#grValue')
     };
 
     // ---------- Model helpers ----------
@@ -114,7 +134,9 @@
     const clipById = (id) => session.clips.find((c) => c.id === id) || null;
     const laneById = (id) => session.lanes.find((l) => l.id === id) || null;
     const sourceOf = (clip) => session.sources.get(clip.sourceId);
-    const lengthOf = (clip) => clip.end - clip.start;
+    // On the timeline; `start` / `end` are source positions, played at `speed`.
+    const lengthOf = MX.clipLength;
+    const rateOf = MX.rateOf;
     const endOf = (clip) => clip.at + lengthOf(clip);
     const selected = () => clipById(state.selectedId);
 
@@ -135,16 +157,18 @@
             pan: 0,
             mute: false,
             solo: false,
-            color: AL.SEGMENT_COLORS[state.colorIndex++ % AL.SEGMENT_COLORS.length]
+            color: AL.SEGMENT_COLORS[state.colorIndex++ % AL.SEGMENT_COLORS.length],
+            fx: MX.defaultFx()
         };
         session.lanes.push(lane);
         return lane;
     }
 
     // `origin` is how the session store keeps the audio: { blob } for a file,
-    // { recipe } for generated demo audio.
+    // { recipe } for generated demo audio. `variants` holds speed / pitch
+    // copies of `clip`, by MX.variantKey.
     function addSource(name, clip, size, origin) {
-        const source = { id: state.nextId++, name, size, clip, origin };
+        const source = { id: state.nextId++, name, size, clip, origin, variants: new Map() };
         session.sources.set(source.id, source);
         return source;
     }
@@ -160,6 +184,8 @@
             fadeIn: 0,
             fadeOut: 0,
             gain: 0,
+            speed: 1,
+            pitch: 0,
             name: uniqueName(AL.baseName(source.name))
         }, fields);
         session.clips.push(clip);
@@ -207,6 +233,7 @@
         state.selectedId = clipById(saved.selectedId) ? saved.selectedId : null;
         renderAll();
         mixer.refresh();
+        prepareAudio();
     }
 
     function undo() {
@@ -410,10 +437,12 @@
         if (empty) {
             mixer.stop();
             preview.stop();
+            clipPlayer.stop();
             renderSavedList();
         }
         renderTimeline();
         renderLaneOptions();
+        renderFxPanel();
         renderEditor();
         refreshTotals();
         updateUndoButtons();
@@ -459,6 +488,7 @@
         name.addEventListener('input', () => {
             lane.name = name.value.trim() || 'Lane';
             renderLaneOptions();
+            if (lane.id === state.fxLaneId) els.fxLaneName.textContent = lane.name;
         });
         name.addEventListener('change', endEdit);
         name.addEventListener('keydown', (e) => {
@@ -514,6 +544,15 @@
                 name,
                 toggle('mute', 'M', 'mute', 'Mute'),
                 toggle('solo', 'S', 'solo', 'Solo'),
+                ui.el('button', {
+                    type: 'button',
+                    class: `lane-toggle fx${hasFx(lane) ? ' has-fx' : ''}`,
+                    text: 'FX',
+                    title: 'Effects (EQ, compressor)',
+                    'aria-label': `Effects for ${lane.name}`,
+                    'aria-pressed': String(lane.id === state.fxLaneId),
+                    onclick: () => openFx(lane.id === state.fxLaneId ? null : lane.id)
+                }),
                 ui.el('button', {
                     type: 'button',
                     class: 'lane-toggle del',
@@ -583,11 +622,14 @@
             'data-id': String(clip.id),
             tabindex: '0',
             role: 'button',
-            'aria-label': `${clip.name}, ${lane.name}, starts at ${AL.formatTime(clip.at, 1)}, ${AL.formatTime(lengthOf(clip), 1)} long`
+            'aria-label': `${clip.name}, ${lane.name}, starts at ${AL.formatTime(clip.at, 1)}, ${AL.formatTime(lengthOf(clip), 1)} long${stretchTag(clip) ? `, ${stretchTag(clip)}` : ''}`
         }, [
             ui.el('span', { class: 'mt-fade in' }),
             ui.el('span', { class: 'mt-fade out' }),
-            ui.el('span', { class: 'mt-clip-label', text: clip.name }),
+            ui.el('span', { class: 'mt-clip-label' }, [
+                clip.name,
+                stretchTag(clip) && ui.el('span', { class: 'mt-clip-tag', text: stretchTag(clip) })
+            ]),
             ui.el('canvas', { 'aria-hidden': 'true' }),
             ui.el('span', { class: 'mt-handle l', title: 'Drag to trim the start' }),
             ui.el('span', { class: 'mt-handle r', title: 'Drag to trim the end' })
@@ -773,7 +815,8 @@
         drag.moved = true;
         const dt = dxPx / state.pps;
         const { clip, orig } = drag;
-        const len = orig.end - orig.start;
+        const len = lengthOf(orig);
+        const rate = rateOf(orig);
         const sourceLength = sourceOf(clip).clip.duration;
 
         if (drag.mode === 'move') {
@@ -794,16 +837,16 @@
             const snap = snapOffset([at], clip.id, e.altKey);
             at += snap.offset;
             showSnap(snap.at);
-            let start = orig.start + (at - orig.at);
-            start = Math.max(0, Math.max(orig.start - orig.at, Math.min(start, orig.end - MIN_CLIP)));
+            let start = orig.start + (at - orig.at) * rate;
+            start = Math.max(0, Math.max(orig.start - orig.at * rate, Math.min(start, orig.end - MIN_CLIP)));
             clip.start = start;
-            clip.at = orig.at + (start - orig.start);
+            clip.at = orig.at + (start - orig.start) / rate;
         } else if (drag.mode === 'trim-r') {
             let end = orig.at + len + dt;
             const snap = snapOffset([end], clip.id, e.altKey);
             end += snap.offset;
             showSnap(snap.at);
-            clip.end = Math.min(sourceLength, Math.max(orig.start + MIN_CLIP, orig.start + (end - orig.at)));
+            clip.end = Math.min(sourceLength, Math.max(orig.start + MIN_CLIP, orig.start + (end - orig.at) * rate));
         }
         placeClip(drag.node, clip);
         renderEditorFields();
@@ -870,6 +913,7 @@
     // ---------- Clip actions ----------
 
     function selectClip(id) {
+        if (id !== state.selectedId) clipPlayer.stop();
         state.selectedId = id;
         markSelection();
         renderEditor();
@@ -891,7 +935,7 @@
         const right = Object.assign({}, clip, {
             id: state.nextId++,
             start: sourceTime,
-            at: clip.at + (sourceTime - clip.start),
+            at: clip.at + (sourceTime - clip.start) / rateOf(clip),
             fadeIn: 0,
             name: uniqueName(clip.name)
         });
@@ -914,7 +958,7 @@
             return;
         }
         checkpoint();
-        targets.forEach((clip) => splitClip(clip, clip.start + (t - clip.at), true));
+        targets.forEach((clip) => splitClip(clip, clip.start + (t - clip.at) * rateOf(clip), true));
         ui.toast(targets.length === 1 ? `Split “${targets[0].name}” in two` : `Split ${targets.length} clips at the playhead`, 'success');
         changed();
     }
@@ -1010,7 +1054,7 @@
             if (preview.playing && preview.isRange) preview.stop();
             // Keep the audio where it is on the timeline: moving the start
             // later shifts the clip later by the same amount.
-            clip.at = Math.max(0, clip.at + (sel.start - clip.start));
+            clip.at = Math.max(0, clip.at + (sel.start - clip.start) / rateOf(clip));
             clip.start = sel.start;
             clip.end = sel.end;
             renderEditorFields();
@@ -1070,6 +1114,8 @@
         if (document.activeElement !== els.fadeIn) els.fadeIn.value = String(+clip.fadeIn.toFixed(3));
         if (document.activeElement !== els.fadeOut) els.fadeOut.value = String(+clip.fadeOut.toFixed(3));
         if (document.activeElement !== els.clipGain) els.clipGain.value = String(clip.gain);
+        if (document.activeElement !== els.clipSpeed) els.clipSpeed.value = String(+(rateOf(clip) * 100).toFixed(1));
+        if (document.activeElement !== els.clipPitch) els.clipPitch.value = String(clip.pitch || 0);
         els.clipLane.value = String(clip.laneId);
         if (wave.selection && (Math.abs(wave.selection.start - clip.start) > 1e-6 || Math.abs(wave.selection.end - clip.end) > 1e-6)) {
             wave.setSelection(clip.start, clip.end, false);
@@ -1083,7 +1129,7 @@
             if (!clip) return;
             checkpoint();
             const start = Math.max(0, Math.min(t, clip.end - MIN_CLIP));
-            clip.at = Math.max(0, clip.at + (start - clip.start));
+            clip.at = Math.max(0, clip.at + (start - clip.start) / rateOf(clip));
             clip.start = start;
             changed();
         }
@@ -1121,7 +1167,7 @@
         }
         checkpoint();
         if (edge === 'start') {
-            clip.at = Math.max(0, clip.at + (t - clip.start));
+            clip.at = Math.max(0, clip.at + (t - clip.start) / rateOf(clip));
             clip.start = t;
         } else {
             clip.end = t;
@@ -1133,6 +1179,7 @@
         const clip = selected();
         if (!clip) return;
         mixer.pause();
+        clipPlayer.stop();
         if (preview.playing) {
             preview.pause();
         } else {
@@ -1145,13 +1192,38 @@
         const clip = selected();
         if (!clip) return;
         mixer.pause();
-        preview.play(clip.start, clip.end, { range: true, loop: state.loop });
+        const audio = MX.audioFor(sourceOf(clip), clip);
+        if (audio === sourceOf(clip).clip) {
+            clipPlayer.stop();
+            preview.play(clip.start, clip.end, { range: true, loop: state.loop });
+            return;
+        }
+        if (!audio) return;
+        // The processed copy runs `speed` times faster than the source.
+        preview.stop();
+        if (clipPlayer.clip !== audio) clipPlayer.setClip(audio);
+        clipPlayer.play(clip.start / rateOf(clip), clip.end / rateOf(clip), { range: true, loop: state.loop });
     }
+
+    // Keeps the source preview's playhead on what the processed copy plays.
+    let clipFrame = 0;
+    function followClipPlayer() {
+        const clip = selected();
+        clipFrame = 0;
+        if (!clip || !clipPlayer.playing) return;
+        const t = clipPlayer.currentTime * rateOf(clip);
+        wave.setPlayhead(t);
+        els.timeNow.textContent = AL.formatTime(t);
+        clipFrame = requestAnimationFrame(followClipPlayer);
+    }
+    clipPlayer.onChange(() => {
+        if (clipPlayer.playing && !clipFrame) clipFrame = requestAnimationFrame(followClipPlayer);
+    });
 
     function toggleLoop() {
         state.loop = !state.loop;
         els.loop.setAttribute('aria-pressed', String(state.loop));
-        if (preview.playing && preview.isRange) playClipAlone();
+        if ((preview.playing && preview.isRange) || clipPlayer.playing) playClipAlone();
     }
 
     // ---------- Mix transport ----------
@@ -1162,6 +1234,7 @@
         const t = mixer.currentTime;
         els.mixTime.textContent = AL.formatTime(t);
         positionPlayhead();
+        paintReduction();
         if (mixer.playing) {
             const x = t * state.pps;
             const view = els.scroll;
@@ -1187,6 +1260,7 @@
     function toggleMix() {
         if (!session.clips.length) return;
         preview.stop();
+        clipPlayer.stop();
         if (mixer.playing) mixer.pause();
         else mixer.play();
     }
@@ -1209,8 +1283,10 @@
         return out;
     }
 
+    // Call after prepareAudio(), so a stretched clip's copy exists.
     function renderPiece(clip) {
-        const piece = AL.slice(sourceOf(clip).clip, clip.start, clip.end);
+        const rate = rateOf(clip);
+        const piece = AL.slice(MX.audioFor(sourceOf(clip), clip), clip.start / rate, clip.end / rate);
         AL.applyFades(piece, clip.fadeIn, clip.fadeOut);
         AL.applyGain(piece, clip.gain);
         return piece;
@@ -1226,6 +1302,8 @@
         const name = AL.withExtension(els.fileName.value.trim() || 'studio-mix', AL.extensionFor(format));
         try {
             await ui.withBusy('Mixing…', async (setLabel) => {
+                await prepareAudio(setLabel);
+                await setLabel('Mixing…');
                 const mix = finish(await MX.render(session, { sampleRate: exportRate() }), { normalize: els.normalize.checked });
                 AL.downloadBlob(await AL.encodeWithLabel(mix, format, setLabel), name);
             });
@@ -1243,6 +1321,7 @@
         const ext = AL.extensionFor(format);
         try {
             await ui.withBusy('Mixing stems…', async (setLabel) => {
+                await prepareAudio(setLabel);
                 const entries = [];
                 const used = new Set();
                 for (let i = 0; i < lanes.length; i++) {
@@ -1276,6 +1355,7 @@
         const ext = AL.extensionFor(format);
         try {
             await ui.withBusy('Preparing clips…', async (setLabel) => {
+                await prepareAudio(setLabel);
                 const entries = [];
                 const used = new Set();
                 for (let i = 0; i < list.length; i++) {
@@ -1302,12 +1382,218 @@
         const name = AL.withExtension(clip.name, AL.extensionFor(format));
         try {
             await ui.withBusy('Preparing…', async (setLabel) => {
+                await prepareAudio(setLabel);
                 AL.downloadBlob(await AL.encodeWithLabel(renderPiece(clip), format, setLabel), name);
             });
             ui.toast(`Saved ${name}`, 'success');
         } catch (error) {
             ui.toast(error.message || 'Export failed.', 'error');
         }
+    }
+
+    // ---------- Speed and pitch ----------
+    //
+    // Changing a clip's speed or pitch makes a processed copy of its whole
+    // source (so trimming and splitting don't redo it), shared by every clip
+    // with the same settings. Copies nothing uses any more are let go.
+
+    const MIN_SPEED = 0.5;
+    const MAX_SPEED = 2;
+    const MAX_PITCH = 12;
+
+    function stretchTag(clip) {
+        const parts = [];
+        if (rateOf(clip) !== 1) parts.push(`${+(rateOf(clip) * 100).toFixed(1)}%`);
+        if (clip.pitch) parts.push(`${clip.pitch > 0 ? '+' : '−'}${Math.abs(clip.pitch)} st`);
+        return parts.join(' ');
+    }
+
+    let preparing = Promise.resolve();
+
+    // Resolves once every clip's copy exists. With `setLabel` it reports
+    // inside the caller's busy overlay instead of opening its own.
+    function prepareAudio(setLabel) {
+        preparing = preparing.catch(() => {}).then(() => makeVariants(setLabel));
+        return preparing;
+    }
+
+    async function makeVariants(setLabel) {
+        const jobs = new Map();
+        session.clips.forEach((clip) => {
+            const key = MX.variantKey(clip);
+            const source = sourceOf(clip);
+            if (!key || !source || source.variants.has(key)) return;
+            jobs.set(`${source.id}/${key}`, { source, key, speed: rateOf(clip), semitones: clip.pitch || 0 });
+        });
+        session.sources.forEach((source) => {
+            source.variants.forEach((_, key) => {
+                if (!session.clips.some((c) => c.sourceId === source.id && MX.variantKey(c) === key)) source.variants.delete(key);
+            });
+        });
+        if (!jobs.size) return;
+
+        const list = [...jobs.values()];
+        const work = async (label) => {
+            for (let i = 0; i < list.length; i++) {
+                const job = list[i];
+                const what = list.length > 1 ? `Changing speed and pitch, ${i + 1} of ${list.length}` : 'Changing speed and pitch';
+                await label(`${what}…`);
+                try {
+                    const copy = await AL.changeSpeedAndPitch(job.source.clip, job, (p) => label(`${what}… ${Math.round(p * 100)}%`));
+                    job.source.variants.set(job.key, copy);
+                } catch (error) {
+                    ui.toast(`Couldn’t change the speed or pitch of “${job.source.name}”. ${error.message || ''}`, 'error');
+                }
+            }
+        };
+        if (setLabel) await work(setLabel);
+        else await ui.withBusy('Changing speed and pitch…', work);
+        mixer.refresh();
+    }
+
+    async function setStretch(speed, pitch) {
+        const clip = selected();
+        if (!clip) return;
+        speed = Math.round(Math.max(MIN_SPEED, Math.min(MAX_SPEED, speed)) * 1000) / 1000;
+        pitch = Math.round(Math.max(-MAX_PITCH, Math.min(MAX_PITCH, pitch)) * 100) / 100;
+        if (speed === rateOf(clip) && pitch === (clip.pitch || 0)) {
+            renderEditorFields();
+            return;
+        }
+        checkpoint();
+        clipPlayer.stop();
+        clip.speed = speed;
+        clip.pitch = pitch;
+        await prepareAudio();
+        changed();
+    }
+
+    // ---------- Lane effects ----------
+
+    const signed = (v) => (v > 0 ? `+${v}` : v < 0 ? `−${-v}` : '0');
+    const dbText = (v) => `${signed(v)} dB`;
+    const msText = (v) => `${v} ms`;
+    const hzText = (v) => (v >= 1000 ? `${+(v / 1000).toFixed(2)} kHz` : `${v} Hz`);
+
+    // Sliders for each effect. `log` sliders move evenly in octaves.
+    const FX_CONTROLS = {
+        eq: [
+            { key: 'low', label: 'Low · 120 Hz', min: -15, max: 15, step: 0.5, format: dbText },
+            { key: 'mid', label: 'Mid', min: -15, max: 15, step: 0.5, format: dbText },
+            { key: 'midFreq', label: 'Mid frequency', min: 200, max: 5000, log: true, format: hzText },
+            { key: 'high', label: 'High · 8 kHz', min: -15, max: 15, step: 0.5, format: dbText }
+        ],
+        comp: [
+            { key: 'threshold', label: 'Threshold', min: -60, max: 0, step: 1, format: dbText },
+            { key: 'ratio', label: 'Ratio', min: 1, max: 20, step: 0.5, format: (v) => `${v}:1` },
+            { key: 'attack', label: 'Attack', min: 0, max: 100, step: 0.5, format: msText },
+            { key: 'release', label: 'Release', min: 10, max: 1000, step: 10, format: msText },
+            { key: 'makeup', label: 'Makeup gain', min: 0, max: 24, step: 0.5, format: dbText }
+        ]
+    };
+    const LOG_STEPS = 1000;
+
+    const toSlider = (c, v) => (c.log ? Math.round((Math.log(v / c.min) / Math.log(c.max / c.min)) * LOG_STEPS) : v);
+    const fromSlider = (c, x) => (c.log ? Math.round(c.min * Math.pow(c.max / c.min, x / LOG_STEPS)) : x);
+
+    const fxLane = () => laneById(state.fxLaneId);
+    const hasFx = (lane) => Boolean(lane.fx && (lane.fx.eq.on || lane.fx.comp.on));
+    const fxInputs = [];
+
+    function buildFxControls() {
+        Object.entries(FX_CONTROLS).forEach(([group, controls]) => {
+            const box = group === 'eq' ? els.eqSliders : els.compSliders;
+            controls.forEach((control) => {
+                const id = `fx-${group}-${control.key}`;
+                const input = ui.el('input', {
+                    type: 'range',
+                    id,
+                    min: String(control.log ? 0 : control.min),
+                    max: String(control.log ? LOG_STEPS : control.max),
+                    step: String(control.log ? 1 : control.step)
+                });
+                const output = ui.el('output', { for: id });
+                box.appendChild(ui.el('div', { class: 'fx-slider' }, [ui.el('label', { for: id, text: control.label }), input, output]));
+
+                const apply = (value) => {
+                    const lane = fxLane();
+                    if (!lane) return;
+                    const fx = lane.fx[group];
+                    fx[control.key] = value;
+                    output.textContent = control.format(value);
+                    if (fx.on) {
+                        mixer.updateLanes();
+                        return;
+                    }
+                    // Moving a control of an effect that's off turns it on.
+                    fx.on = true;
+                    renderFxPanel();
+                    refreshFxButtons();
+                    mixer.refresh();
+                };
+                input.addEventListener('pointerdown', beginEdit);
+                input.addEventListener('focus', beginEdit);
+                input.addEventListener('input', () => apply(fromSlider(control, Number(input.value))));
+                input.addEventListener('change', endEdit);
+                // Double-click returns the control to its default.
+                input.addEventListener('dblclick', () => {
+                    beginEdit();
+                    const value = MX.defaultFx()[group][control.key];
+                    input.value = String(toSlider(control, value));
+                    apply(value);
+                    endEdit();
+                });
+                fxInputs.push({ group, control, input, output });
+            });
+        });
+    }
+
+    function openFx(laneId) {
+        state.fxLaneId = laneId;
+        renderFxPanel();
+        refreshFxButtons();
+        if (laneId !== null) els.laneFx.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    function renderFxPanel() {
+        const lane = fxLane();
+        els.laneFx.hidden = !lane;
+        if (!lane) {
+            state.fxLaneId = null;
+            return;
+        }
+        const { eq, comp } = lane.fx;
+        els.laneFx.style.setProperty('--swatch', lane.color);
+        els.fxSwatch.style.setProperty('--swatch', lane.color);
+        els.fxLaneName.textContent = lane.name;
+        els.eqOn.checked = eq.on;
+        els.compOn.checked = comp.on;
+        els.eqCard.classList.toggle('is-off', !eq.on);
+        els.compCard.classList.toggle('is-off', !comp.on);
+        fxInputs.forEach(({ group, control, input, output }) => {
+            const value = lane.fx[group][control.key];
+            if (document.activeElement !== input) input.value = String(toSlider(control, value));
+            output.textContent = control.format(value);
+        });
+        paintReduction();
+    }
+
+    // Lane heads aren't rebuilt for effect changes; just their FX buttons.
+    function refreshFxButtons() {
+        els.heads.querySelectorAll('.lane-head').forEach((head) => {
+            const lane = laneById(Number(head.dataset.lane));
+            const button = head.querySelector('.lane-toggle.fx');
+            if (!lane || !button) return;
+            button.classList.toggle('has-fx', hasFx(lane));
+            button.setAttribute('aria-pressed', String(lane.id === state.fxLaneId));
+        });
+    }
+
+    function paintReduction() {
+        if (els.laneFx.hidden) return;
+        const reduction = Math.min(0, mixer.reduction(state.fxLaneId) || 0);
+        els.grFill.style.width = `${Math.min(100, (-reduction / 24) * 100)}%`;
+        els.grValue.textContent = reduction < -0.05 ? `−${(-reduction).toFixed(1)} dB` : '0.0 dB';
     }
 
     // ---------- Saved sessions ----------
@@ -1436,6 +1722,7 @@
     function resetSession() {
         mixer.stop();
         preview.stop();
+        clipPlayer.stop();
         mixer.seek(0);
         session.sources = new Map();
         session.lanes = [];
@@ -1447,6 +1734,7 @@
             history: [],
             future: [],
             baseline: null,
+            fxLaneId: null,
             sessionId: null,
             sessionName: '',
             createdAt: 0,
@@ -1487,7 +1775,7 @@
                             ? synthesize(saved.recipe)
                             : await AL.decodeFile(new File([saved.blob], saved.name, { type: saved.blob.type }));
                         const origin = saved.recipe ? { recipe: saved.recipe } : { blob: saved.blob };
-                        rebuilt.set(saved.id, { id: saved.id, name: saved.name, size: saved.size, clip, origin });
+                        rebuilt.set(saved.id, { id: saved.id, name: saved.name, size: saved.size, clip, origin, variants: new Map() });
                     } catch (error) {
                         missing.push(saved.name);
                     }
@@ -1503,7 +1791,8 @@
         const { record, rebuilt } = loaded;
         resetSession();
         session.sources = rebuilt;
-        session.lanes = record.lanes;
+        // Sessions saved before lane effects existed get them switched off.
+        session.lanes = record.lanes.map((lane) => Object.assign(lane, { fx: MX.normalizeFx(lane.fx) }));
         session.clips = record.clips.filter((clip) => {
             const source = rebuilt.get(clip.sourceId);
             if (!source) return false;
@@ -1533,6 +1822,8 @@
             ui.toast(`Couldn’t decode ${missing.join(', ')} in this browser, so ${missing.length === 1 ? 'its clips are' : 'their clips are'} left out.`, 'error');
         }
         ui.announce(`Opened ${state.sessionName || 'session'}.`);
+        // Copies for clips with their speed or pitch changed aren't saved.
+        prepareAudio();
     }
 
     async function deleteSaved(record) {
@@ -1656,10 +1947,16 @@
         const clip = selected();
         if (!clip) return;
         checkpoint();
-        clip.at = Math.max(0, clip.at - clip.start);
+        clip.at = Math.max(0, clip.at - clip.start / rateOf(clip));
         clip.start = 0;
         clip.end = sourceOf(clip).clip.duration;
         changed();
+    });
+    $('#resetStretch').addEventListener('click', () => setStretch(1, 0));
+    [els.clipSpeed, els.clipPitch].forEach((input) => {
+        input.addEventListener('change', () => {
+            setStretch(ui.readNumber(els.clipSpeed, 100) / 100, ui.readNumber(els.clipPitch, 0));
+        });
     });
     $('#duplicateClip').addEventListener('click', duplicateClip);
     $('#deleteClip').addEventListener('click', deleteClip);
@@ -1709,6 +2006,30 @@
             renderEditorFields();
         });
     });
+
+    // Lane effects
+    buildFxControls();
+    [els.eqOn, els.compOn].forEach((box) => {
+        box.addEventListener('change', () => {
+            const lane = fxLane();
+            if (!lane) return;
+            checkpoint();
+            lane.fx[box.dataset.group].on = box.checked;
+            renderFxPanel();
+            refreshFxButtons();
+            mixer.refresh();
+        });
+    });
+    $('#fxReset').addEventListener('click', () => {
+        const lane = fxLane();
+        if (!lane) return;
+        checkpoint();
+        lane.fx = MX.defaultFx();
+        renderFxPanel();
+        refreshFxButtons();
+        mixer.refresh();
+    });
+    $('#fxClose').addEventListener('click', () => openFx(null));
 
     // Line up / export
     document.querySelectorAll('input[name="transition"]').forEach((input) => input.addEventListener('change', refreshTotals));

@@ -140,6 +140,40 @@
                 </div>
                 <p class="wave-hint">Lanes play at the same time. Drag a clip sideways to move it in time, or up and down to another lane; drag its edges to trim. Click the ruler or an empty spot to move the playhead. Drop files onto a lane to add them there. <kbd>Ctrl</kbd> + scroll zooms.</p>
 
+                <!-- Lane effects, opened by a lane's FX button. -->
+                <section class="lane-fx" id="laneFx" aria-labelledby="laneFxTitle" hidden>
+                    <div class="lane-fx-head">
+                        <span class="swatch-dot" id="fxSwatch" aria-hidden="true"></span>
+                        <h3 class="lane-fx-title" id="laneFxTitle">Effects on <span id="fxLaneName">Lane</span></h3>
+                        <button type="button" class="btn btn-sm btn-ghost" id="fxReset" title="Turn both effects off and reset their settings">Reset</button>
+                        <button type="button" class="btn btn-sm btn-icon" id="fxClose" aria-label="Close effects" title="Close">
+                            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                        </button>
+                    </div>
+                    <div class="controls fx-controls">
+                        <div class="control-card fx-card" id="eqCard">
+                            <div class="fx-card-head">
+                                <h3>EQ</h3>
+                                <label class="check fx-switch"><input type="checkbox" id="eqOn" data-group="eq"> On</label>
+                            </div>
+                            <div class="fx-sliders" id="eqSliders"></div>
+                        </div>
+                        <div class="control-card fx-card" id="compCard">
+                            <div class="fx-card-head">
+                                <h3>Compressor</h3>
+                                <label class="check fx-switch"><input type="checkbox" id="compOn" data-group="comp"> On</label>
+                            </div>
+                            <div class="fx-sliders" id="compSliders"></div>
+                            <div class="gr-meter" aria-hidden="true">
+                                <span>Gain reduction</span>
+                                <span class="gr-track"><span class="gr-fill" id="grFill"></span></span>
+                                <output id="grValue">0.0 dB</output>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="wave-hint">Effects apply to the whole lane, after clip volume and before the lane's volume and pan, in playback and in every export. Moving a control turns its effect on; double-click a slider to reset it.</p>
+                </section>
+
                 <!-- Hidden picker used by the Add tracks button. -->
                 <div class="dropzone" id="addZone" hidden>
                     <input type="file" tabindex="-1">
@@ -188,7 +222,7 @@
                             </div>
                         </div>
 
-                        <div class="controls">
+                        <div class="controls four">
                             <div class="control-card">
                                 <h3>Trim</h3>
                                 <div class="field-row">
@@ -231,6 +265,22 @@
                                     <label for="clipGain">Clip volume (dB)</label>
                                     <input class="input" id="clipGain" type="number" min="-60" max="24" step="0.5" value="0">
                                 </div>
+                            </div>
+
+                            <div class="control-card">
+                                <h3>Speed &amp; pitch</h3>
+                                <div class="field-row">
+                                    <div class="field">
+                                        <label for="clipSpeed">Speed (%)</label>
+                                        <input class="input" id="clipSpeed" type="number" min="50" max="200" step="5" value="100">
+                                    </div>
+                                    <div class="field">
+                                        <label for="clipPitch">Pitch (semitones)</label>
+                                        <input class="input" id="clipPitch" type="number" min="-12" max="12" step="1" value="0">
+                                    </div>
+                                </div>
+                                <p class="field"><small>Speed keeps the pitch, and pitch keeps the length.</small></p>
+                                <button type="button" class="link-button" id="resetStretch">Original speed and pitch</button>
                             </div>
 
                             <div class="control-card">
@@ -359,6 +409,7 @@
     <script src="js/waveform.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/mixer.js"></script>
+    <script src="js/stretch.js"></script>
     <script src="js/session-store.js"></script>
     <script src="js/studio.js"></script>
     <script src="js/sw-register.js"></script>

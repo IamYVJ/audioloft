@@ -13,7 +13,7 @@ Pages and keeps working offline once it has been opened.
 
 | Tool | What it does |
 | --- | --- |
-| **Studio** | A multitrack editor. Every file gets its own lane and lanes play at the same time, so tracks can be layered (voice over music) as well as placed one after another. Drag clips in time and between lanes, trim them by their edges, split at the playhead, duplicate, fade and set clip volume. Each lane has volume, pan, mute and solo. Snapping, undo / redo, and a "line up" helper that places a lane's clips end to end with a gap or crossfade. Export the mix, one stem per lane (ZIP), or every clip (ZIP). Sessions save themselves in the browser and can be reopened later. |
+| **Studio** | A multitrack editor. Every file gets its own lane and lanes play at the same time, so tracks can be layered (voice over music) as well as placed one after another. Drag clips in time and between lanes, trim them by their edges, split at the playhead, duplicate, fade and set clip volume. Change a clip's speed without changing its pitch, or its pitch without changing its speed. Each lane has volume, pan, mute, solo and its own EQ and compressor. Snapping, undo / redo, and a "line up" helper that places a lane's clips end to end with a gap or crossfade. Export the mix, one stem per lane (ZIP), or every clip (ZIP). Sessions save themselves in the browser and can be reopened later. |
 | **Trim** | Select a range on the waveform (drag, type exact times, or set from the playhead) and either keep it or cut it out. Fade in / out, normalize to −1 dB, loop the selection, preview the result before saving. |
 | **Split** | Place split points by hand, every N seconds, into N equal parts, or in the middle of silent gaps. Drag points to adjust, name each part, play or download parts one by one, or download them all as a ZIP. Optional silence trimming and short fades at each cut. |
 | **Join** | Add any number of files in any supported format, reorder by drag and drop or the ↑ / ↓ buttons, preview each one. Join with no gap, a silent gap, or an equal-power crossfade. Mixed sample rates and channel layouts are matched automatically. |
@@ -61,6 +61,23 @@ in and a WAV out are sample-identical apart from the edit itself.
   keys (Shift for bigger steps). Drop files on a lane to add them there.
   Live playback and export use the same mixing graph, so the WAV matches what
   you heard.
+- **Lane effects:** a lane's **FX** button opens its EQ (low shelf at
+  120 Hz, a sweepable mid band, high shelf at 8 kHz, each ±15 dB) and
+  compressor (threshold, ratio, attack, release, makeup gain, with a
+  gain-reduction meter while playing). They sit after clip volume and before
+  the lane's volume and pan, and apply to playback, the mix and stems alike.
+  Moving a control turns its effect on, and settings change live. The
+  browser's compressor runs 6 ms behind, so while any lane is compressed the
+  others are delayed by the same amount to stay in time.
+- **Speed and pitch** are set per clip (50–200% speed, ±12 semitones). Speed
+  uses WSOLA, which builds the result from short overlapping grains of the
+  original, picking each so its waveform lines up with the last one, so the
+  pitch stays put. A pitch change is a stretch followed by a resample, so the
+  length stays put. The whole source file is processed once per setting, in
+  a Web Worker, and shared by every clip that uses it; trims and splits don't
+  redo it. "Play clip" plays the processed audio, while the waveform above
+  shows the source. Big changes (below about 70% or above 150%, or more than
+  a few semitones) start to sound grainy on dense music.
 - **Studio sessions** save on their own a moment after each change (`Ctrl+S`
   saves at once). Rename one with the name above the toolbar; **All sessions**
   closes it and lists everything saved, newest first, to open or delete.
@@ -121,7 +138,10 @@ audioloft/
 │   ├── ui.js             # Drop zones, toasts, busy overlay, shortcuts
 │   ├── trim.js / split.js / join.js
 │   ├── studio.js         # Multitrack session: lanes, clips, timeline, undo
-│   ├── mixer.js          # Web Audio mix graph for live playback and export
+│   ├── mixer.js          # Web Audio mix graph (lane EQ / compressor) for
+│   │                     # live playback and export
+│   ├── stretch.js        # Speed / pitch change (WSOLA time stretch)
+│   ├── stretch-worker.js # Runs the stretch off the main thread
 │   ├── session-store.js  # Saved Studio sessions (IndexedDB)
 │   ├── home.js           # Landing-page hero animation
 │   ├── visitor-count.js  # "N visitors" footer note (GoatCounter read-back)
